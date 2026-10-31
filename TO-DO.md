@@ -143,3 +143,15 @@
 - [ ] Format birthdate for display (currently raw 1990-05-17)
 - [ ] Decide whether "Save changes" with no edits should just close edit
       mode instead of showing the "No changes to save." error toast
+
+## Listing detail
+
+- [x] Edit listing in place (feature/listing-detail-edit-in-place): owner
+      Edit/Delete buttons, prefilled form in the right column, Replace photo
+      under the image, changed-fields-only PATCH
+- [x] Delete confirmation Dialog (replaces window.confirm), with a
+      "was deleted" toast on /profile
+- [x] Detail card stacks on phones; removed the unlinked /editlisting/:id/ route
+- [ ] Preview the replacement photo before saving
+- [ ] Add to Cart shows "Added to your cart!" before the request finishes,
+      even if it fails; move it to the shared Toast after a successful response
