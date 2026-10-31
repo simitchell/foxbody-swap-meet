@@ -108,9 +108,11 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   `Authorization: Bearer <access_token>`.
 - User feedback: use the shared `components/Toast.jsx` (MUI Snackbar) and
   `utils/apiErrorMessage.js`. After a redirect, pass the message via
-  `navigate(path, { state: { toast } })`; `ListingDetail` shows it. The detail route
-  renders `EditListing` and `ListingDetail` together, so edits refresh via an
-  `onUpdated`/`refreshKey` pair instead of navigating.
+  `navigate(path, { state: { toast } })`; `ListingDetail` and the profile page show it.
+  The detail route renders only `ListingDetail`, which owns the listing and an
+  `isEditing` flag and swaps its right column for the prop-driven `EditListing` form
+  (`listing`/`onSaved`/`onCancel`). Saves PATCH only the changed fields and update
+  the listing from the response, with no refetch.
 - Styling: per-feature styled-components modules under
   `components/GlobalStyles/` (`Style*.jsx`), mixed with MUI components.
 

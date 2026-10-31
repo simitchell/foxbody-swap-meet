@@ -9,7 +9,6 @@ import "./index.css";
 import AboutUs from "./routes/aboutus";
 import Cart from "./routes/cart";
 import DisplayListingDetail from "./routes/listingdetail";
-import EditListing from "./components/EditListing";
 import HomePage from "./routes/home";
 import HowItWorks from "./routes/howitworks";
 import Listing from "./routes/createlisting";
@@ -43,10 +42,6 @@ const router = createBrowserRouter([
       {
         path: "createlisting/",
         element: <Listing />,
-      },
-      {
-        path: "editlisting/:id/",
-        element: <EditListing />,
       },
       {
         path: "howitworks/",

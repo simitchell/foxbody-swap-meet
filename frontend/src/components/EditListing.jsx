@@ -1,22 +1,20 @@
 import { API_BASE_URL } from "../config";
-import { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Form } from "../components/GlobalStyles/StyleUtility";
+import { useRef, useState } from "react";
+import Button from "@mui/material/Button";
+import { EditForm } from "./GlobalStyles/StyleUtility";
+import { ReplacePhotoLabel } from "./GlobalStyles/StyleListingDetail";
 import Toast from "./Toast";
 import apiErrorMessage from "../utils/apiErrorMessage";
-import {
-  ButtonContainer,
-  DeleteButton,
-  EditListingCard,
-  EditListingHeader,
-  UpdateButton,
-} from "./GlobalStyles/StyleEditListing";
 
+// The photo input lives in the left column, outside the <form>. Its form
+// attribute points at this id, so the browser still treats it as one of the
+// form's fields and includes it in the form's data.
+export const EDIT_LISTING_FORM_ID = "edit-listing-form";
 
-export default function EditListing({ onUpdated }) {
+// Edit form for a listing. ListingDetail owns the listing data and edit mode;
+// this just edits what it's given and reports back through onSaved/onCancel.
+export default function EditListing({ listing, onSaved, onCancel }) {
   const auth = localStorage.getItem("access_token");
-  const [listingDetail, setListingDetail] = useState(null);
-  const navigate = useNavigate();
   const updateForm = useRef(null);
   const [toast, setToast] = useState({
     open: false,
@@ -24,147 +22,138 @@ export default function EditListing({ onUpdated }) {
     severity: "error",
   });
 
-  const { id } = useParams();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(updateForm.current);
 
-  const getIndividualListing = async () => {
-    try {
-      const apiUrl = `${API_BASE_URL}/listing/${id}/`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-      setListingDetail(data);
-      // console.log(data);
-      // console.log(listingDetail);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      // setIsLoading(false);
+    // Send only the fields the user changed, like ProfileForm. PATCH updates
+    // just those fields; PUT would replace the whole listing, so anything
+    // missing would be wiped or rejected.
+    const changes = new FormData();
+    for (const [name, value] of formData.entries()) {
+      if (value instanceof File) {
+        // An empty File means no new photo was chosen.
+        if (value.size > 0) changes.append(name, value);
+      } else if (value !== String(listing[name] ?? "")) {
+        changes.append(name, value);
+      }
     }
-  };
-
-  useEffect(() => {
-    getIndividualListing();
-  }, []);
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  const formData = new FormData(updateForm.current);
-  const url = `${API_BASE_URL}/listing/${id}/`;
-  try {
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${auth}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      console.error("Failed to update listing:", body);
-      setToast({
-        open: true,
-        severity: "error",
-        message: apiErrorMessage(body, "Couldn't update your listing."),
-      });
+    if ([...changes.keys()].length === 0) {
+      setToast({ open: true, severity: "error", message: "No changes to save." });
       return;
     }
 
-    updateForm.current.reset();
-    if (onUpdated) {
-      // Already on the detail page (it embeds this form): refresh in place.
-      onUpdated();
-      setToast({
-        open: true,
-        severity: "success",
-        message: "Listing updated successfully!",
-      });
-    } else {
-      navigate(`/listingdetail/${id}`, {
-        state: { toast: "Listing updated successfully!" },
-      });
-    }
-  } catch (error) {
-    console.error("Error updating listing:", error);
-    setToast({
-      open: true,
-      severity: "error",
-      message: "Couldn't reach the server. Please try again.",
-    });
-  }
-};
-
-  const handleDelete = async () => {
-    const apiUrl = `${API_BASE_URL}/listing/${id}/`;
+    const url = `${API_BASE_URL}/listing/${listing.id}/`;
     try {
-      const response = await fetch(apiUrl, {
-        method: "DELETE",
+      const response = await fetch(url, {
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${auth}`,
         },
+        body: changes,
       });
 
-      if (response.ok) {
-        setListingDetail(null);
-        navigate("/profile");
-      } else {
-        console.error("Failed to delete listing");
+      if (!response.ok) {
+        // Includes a flagged photo: image moderation's ValidationError comes
+        // back as a 400 that apiErrorMessage turns into readable text.
+        const body = await response.json().catch(() => null);
+        setToast({
+          open: true,
+          severity: "error",
+          message: apiErrorMessage(body, "Couldn't update your listing."),
+        });
+        return;
       }
+
+      onSaved(await response.json());
     } catch (error) {
-      console.error("Error deleting listing:", error);
+      console.error("Error updating listing:", error);
+      setToast({
+        open: true,
+        severity: "error",
+        message: "Couldn't reach the server. Please try again.",
+      });
     }
   };
 
- return (
-  <>
-    {listingDetail?.username === localStorage.getItem("username") && (
-      <EditListingCard>
-        <EditListingHeader>Update Your Listing</EditListingHeader>
-        <Form onSubmit={(e) => handleSubmit(e)} ref={updateForm}>
-          <label>Listing Title</label>
-          <input type="text" name="title" />
-          <label>Price</label>
-          <input type="number" name="price" />
-          <label>Description</label>
-          <textarea type="text" name="description" maxLength="250" />
-          <label>Condition</label>
-          <select name="condition" value={listingDetail?.condition} onChange={() => {}}>
-            <option value="new">New</option>
-            <option value="great">Great</option>
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-          </select>
-          <label>Upload Image</label>
-          <input
-            type="file"
-            name="image_url"
-            accept="image/jpeg, image/png, image/gif"
+  return (
+    <>
+      <EditForm
+        id={EDIT_LISTING_FORM_ID}
+        onSubmit={(e) => handleSubmit(e)}
+        ref={updateForm}
+      >
+        <h2>Edit listing</h2>
+        <label className="field">
+          Listing title
+          <input type="text" name="title" defaultValue={listing.title ?? ""} />
+        </label>
+        <div className="row2">
+          <label className="field">
+            Price
+            <input
+              type="number"
+              name="price"
+              defaultValue={listing.price ?? ""}
+            />
+          </label>
+          <label className="field">
+            Condition
+            <select name="condition" defaultValue={listing.condition}>
+              <option value="new">New</option>
+              <option value="great">Great</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+            </select>
+          </label>
+        </div>
+        <label className="field">
+          Description
+          <textarea
+            name="description"
+            maxLength="250"
+            defaultValue={listing.description ?? ""}
           />
-          <input type="hidden" name="user" value={localStorage.getItem("userId")} />
-          <input type="hidden" name="username" value={localStorage.getItem("username")} />
-          <ButtonContainer>
-            <UpdateButton type="submit">Update Listing</UpdateButton>
-            {listingDetail && (
-              <DeleteButton
-                type="button"
-                onClick={() => {
-                  if (window.confirm("Are you sure you wish to delete this item?")) {
-                    handleDelete();
-                  }
-                }}
-              >
-                Delete Listing
-              </DeleteButton>
-            )}
-          </ButtonContainer>
-        </Form>
-        <Toast
-          open={toast.open}
-          message={toast.message}
-          severity={toast.severity}
-          onClose={() => setToast({ ...toast, open: false })}
-        />
-      </EditListingCard>
-    )}
-  </>
-);
+        </label>
+        <small className="hint">Up to 250 characters.</small>
+        <div className="actions">
+          {/* type="button" so Cancel doesn't submit the form. */}
+          <Button variant="outlined" type="button" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button variant="contained" type="submit">
+            Save changes
+          </Button>
+        </div>
+      </EditForm>
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        severity={toast.severity}
+        onClose={() => setToast({ ...toast, open: false })}
+      />
+    </>
+  );
+}
+
+// Shown under the photo while editing. Unmounts when editing ends, so the
+// chosen file and its name reset on Cancel or Save.
+export function ReplacePhotoInput() {
+  const [fileName, setFileName] = useState("");
+
+  return (
+    <ReplacePhotoLabel>
+      {/* Visually hidden rather than display: none, so it can still be
+          reached with the keyboard. */}
+      <input
+        type="file"
+        name="image_url"
+        accept="image/jpeg, image/png, image/gif"
+        form={EDIT_LISTING_FORM_ID}
+        onChange={(e) => setFileName(e.target.files[0]?.name ?? "")}
+      />
+      <span className="action">Replace photo</span>
+      {fileName && <span className="fileName">{fileName}</span>}
+    </ReplacePhotoLabel>
+  );
 }

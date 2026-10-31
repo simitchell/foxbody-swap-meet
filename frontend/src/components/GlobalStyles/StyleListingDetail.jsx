@@ -15,16 +15,33 @@ export const DetailWrapper = styled.div`
   border-radius: 12px;
   overflow: hidden;
   min-height: 420px;
+
+  /* Phones: photo on top, info below, with a 16px gutter at the screen edges. */
+  @media (max-width: 768px) {
+    flex-direction: column;
+    margin: 0 16px;
+    min-height: 0;
+  }
 `;
 
 export const DetailLeft = styled.div`
   width: 55%;
   background: #f5f5f5;
   display: flex;
+  /* Column so Replace photo sits under the photo, not beside it. */
+  flex-direction: column;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
   border-right: 0.5px solid #e0e0e0;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 0.5px solid #e0e0e0;
+  }
 `;
 
 export const DetailImage = styled.div`
@@ -50,6 +67,11 @@ export const DetailRight = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 1.25rem;
+  }
 `;
 
 export const DetailTitleBlock = styled.div`
@@ -174,3 +196,63 @@ export const DetailInfoCard = styled.div`
 `;
 
 export const DetailSeller = styled.div``;
+
+// Owner's Edit / Delete buttons, in the spot where buyers see Add to Cart.
+// Each button grows to share the row but never shrinks below its one-line
+// label (nowrap + basis auto), so on narrow screens the row wraps into two
+// full-width buttons instead of breaking a label onto two lines.
+export const OwnerActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  > * {
+    flex: 1 0 auto;
+    white-space: nowrap;
+  }
+`;
+
+// Dashed, button-style label around a hidden file input. Clicking anywhere on
+// the label opens the file picker, because a label activates its input.
+export const ReplacePhotoLabel = styled.label`
+  /* Anchors the absolutely positioned (hidden) input inside the label. */
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  border: 1.5px dashed #9ca3af;
+  border-radius: 8px;
+  background: white;
+  color: #1976d2;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #1976d2;
+  }
+
+  /* The hidden input can still take keyboard focus; show it on the label. */
+  &:focus-within {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+  }
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  .fileName {
+    font-size: 13px;
+    font-weight: 400;
+    color: #6b7280;
+    overflow-wrap: anywhere;
+  }
+`;

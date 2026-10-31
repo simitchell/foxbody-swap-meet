@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import Toast from "../components/Toast";
 import ProfileForm from "../components/ProfileForm";
 import SellerTools from "../components/SellerTools";
 import DisplayUserListings from "../components/DisplayUserListings";
@@ -16,9 +17,29 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   // Reported by DisplayUserListings once its fetch finishes.
   const [listingCount, setListingCount] = useState(null);
+  // A one-shot message passed in by the page that sent us here, e.g. after
+  // deleting a listing.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [toast, setToast] = useState({
+    open: Boolean(location.state?.toast),
+    message: location.state?.toast || "",
+  });
+
+  // Clear the one-shot toast from history so a reload doesn't show it again.
+  useEffect(() => {
+    if (location.state?.toast) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, []);
 
   return (
     <ProfileContainer>
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        onClose={() => setToast({ ...toast, open: false })}
+      />
       <WelcomePanel>
         <h1>Welcome back, {localStorage.getItem("username")}!</h1>
         <p>
