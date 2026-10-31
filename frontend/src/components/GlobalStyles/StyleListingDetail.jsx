@@ -174,3 +174,15 @@ export const DetailInfoCard = styled.div`
 `;
 
 export const DetailSeller = styled.div``;
+
+// Owner's Edit / Delete buttons, in the spot where buyers see Add to Cart.
+// flex: 1 splits the row evenly; wrap lets them stack if there's no room.
+export const OwnerActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  > * {
+    flex: 1;
+  }
+`;

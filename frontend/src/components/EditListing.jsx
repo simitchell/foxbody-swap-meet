@@ -1,22 +1,14 @@
 import { API_BASE_URL } from "../config";
-import { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useRef, useState } from "react";
+import Button from "@mui/material/Button";
 import { Form } from "../components/GlobalStyles/StyleUtility";
 import Toast from "./Toast";
 import apiErrorMessage from "../utils/apiErrorMessage";
-import {
-  ButtonContainer,
-  DeleteButton,
-  EditListingCard,
-  EditListingHeader,
-  UpdateButton,
-} from "./GlobalStyles/StyleEditListing";
 
-
-export default function EditListing({ onUpdated }) {
+// Edit form for a listing. ListingDetail owns the listing data and edit mode;
+// this just edits what it's given and reports back through onSaved/onCancel.
+export default function EditListing({ listing, onSaved, onCancel }) {
   const auth = localStorage.getItem("access_token");
-  const [listingDetail, setListingDetail] = useState(null);
-  const navigate = useNavigate();
   const updateForm = useRef(null);
   const [toast, setToast] = useState({
     open: false,
@@ -24,147 +16,82 @@ export default function EditListing({ onUpdated }) {
     severity: "error",
   });
 
-  const { id } = useParams();
-
-  const getIndividualListing = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(updateForm.current);
+    const url = `${API_BASE_URL}/listing/${listing.id}/`;
     try {
-      const apiUrl = `${API_BASE_URL}/listing/${id}/`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
-      setListingDetail(data);
-      // console.log(data);
-      // console.log(listingDetail);
-    } catch (error) {
-      console.log(error);
-    } finally {
-      // setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    getIndividualListing();
-  }, []);
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  const formData = new FormData(updateForm.current);
-  const url = `${API_BASE_URL}/listing/${id}/`;
-  try {
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${auth}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      console.error("Failed to update listing:", body);
-      setToast({
-        open: true,
-        severity: "error",
-        message: apiErrorMessage(body, "Couldn't update your listing."),
-      });
-      return;
-    }
-
-    updateForm.current.reset();
-    if (onUpdated) {
-      // Already on the detail page (it embeds this form): refresh in place.
-      onUpdated();
-      setToast({
-        open: true,
-        severity: "success",
-        message: "Listing updated successfully!",
-      });
-    } else {
-      navigate(`/listingdetail/${id}`, {
-        state: { toast: "Listing updated successfully!" },
-      });
-    }
-  } catch (error) {
-    console.error("Error updating listing:", error);
-    setToast({
-      open: true,
-      severity: "error",
-      message: "Couldn't reach the server. Please try again.",
-    });
-  }
-};
-
-  const handleDelete = async () => {
-    const apiUrl = `${API_BASE_URL}/listing/${id}/`;
-    try {
-      const response = await fetch(apiUrl, {
-        method: "DELETE",
+      const response = await fetch(url, {
+        method: "PUT",
         headers: {
           Authorization: `Bearer ${auth}`,
         },
+        body: formData,
       });
 
-      if (response.ok) {
-        setListingDetail(null);
-        navigate("/profile");
-      } else {
-        console.error("Failed to delete listing");
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        console.error("Failed to update listing:", body);
+        setToast({
+          open: true,
+          severity: "error",
+          message: apiErrorMessage(body, "Couldn't update your listing."),
+        });
+        return;
       }
+
+      onSaved(await response.json());
     } catch (error) {
-      console.error("Error deleting listing:", error);
+      console.error("Error updating listing:", error);
+      setToast({
+        open: true,
+        severity: "error",
+        message: "Couldn't reach the server. Please try again.",
+      });
     }
   };
 
- return (
-  <>
-    {listingDetail?.username === localStorage.getItem("username") && (
-      <EditListingCard>
-        <EditListingHeader>Update Your Listing</EditListingHeader>
-        <Form onSubmit={(e) => handleSubmit(e)} ref={updateForm}>
-          <label>Listing Title</label>
-          <input type="text" name="title" />
-          <label>Price</label>
-          <input type="number" name="price" />
-          <label>Description</label>
-          <textarea type="text" name="description" maxLength="250" />
-          <label>Condition</label>
-          <select name="condition" value={listingDetail?.condition} onChange={() => {}}>
-            <option value="new">New</option>
-            <option value="great">Great</option>
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-          </select>
-          <label>Upload Image</label>
-          <input
-            type="file"
-            name="image_url"
-            accept="image/jpeg, image/png, image/gif"
-          />
-          <input type="hidden" name="user" value={localStorage.getItem("userId")} />
-          <input type="hidden" name="username" value={localStorage.getItem("username")} />
-          <ButtonContainer>
-            <UpdateButton type="submit">Update Listing</UpdateButton>
-            {listingDetail && (
-              <DeleteButton
-                type="button"
-                onClick={() => {
-                  if (window.confirm("Are you sure you wish to delete this item?")) {
-                    handleDelete();
-                  }
-                }}
-              >
-                Delete Listing
-              </DeleteButton>
-            )}
-          </ButtonContainer>
-        </Form>
-        <Toast
-          open={toast.open}
-          message={toast.message}
-          severity={toast.severity}
-          onClose={() => setToast({ ...toast, open: false })}
+  return (
+    <>
+      <Form onSubmit={(e) => handleSubmit(e)} ref={updateForm}>
+        <label>Listing Title</label>
+        <input type="text" name="title" defaultValue={listing.title ?? ""} />
+        <label>Price</label>
+        <input type="number" name="price" defaultValue={listing.price ?? ""} />
+        <label>Description</label>
+        <textarea
+          name="description"
+          maxLength="250"
+          defaultValue={listing.description ?? ""}
         />
-      </EditListingCard>
-    )}
-  </>
-);
+        <label>Condition</label>
+        <select name="condition" defaultValue={listing.condition}>
+          <option value="new">New</option>
+          <option value="great">Great</option>
+          <option value="good">Good</option>
+          <option value="fair">Fair</option>
+        </select>
+        <label>Upload Image</label>
+        <input
+          type="file"
+          name="image_url"
+          accept="image/jpeg, image/png, image/gif"
+        />
+        <input type="hidden" name="user" value={localStorage.getItem("userId")} />
+        <input type="hidden" name="username" value={localStorage.getItem("username")} />
+        <Button variant="outlined" type="button" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button variant="contained" type="submit">
+          Update Listing
+        </Button>
+      </Form>
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        severity={toast.severity}
+        onClose={() => setToast({ ...toast, open: false })}
+      />
+    </>
+  );
 }
