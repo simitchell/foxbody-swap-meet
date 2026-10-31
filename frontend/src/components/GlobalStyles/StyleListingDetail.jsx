@@ -21,6 +21,9 @@ export const DetailLeft = styled.div`
   width: 55%;
   background: #f5f5f5;
   display: flex;
+  /* Column so Replace photo sits under the photo, not beside it. */
+  flex-direction: column;
+  gap: 12px;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
@@ -184,5 +187,50 @@ export const OwnerActions = styled.div`
 
   > * {
     flex: 1;
+  }
+`;
+
+// Dashed, button-style label around a hidden file input. Clicking anywhere on
+// the label opens the file picker, because a label activates its input.
+export const ReplacePhotoLabel = styled.label`
+  /* Anchors the absolutely positioned (hidden) input inside the label. */
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  border: 1.5px dashed #9ca3af;
+  border-radius: 8px;
+  background: white;
+  color: #1976d2;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #1976d2;
+  }
+
+  /* The hidden input can still take keyboard focus; show it on the label. */
+  &:focus-within {
+    outline: 2px solid #1976d2;
+    outline-offset: 2px;
+  }
+
+  input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+  }
+
+  .fileName {
+    font-size: 13px;
+    font-weight: 400;
+    color: #6b7280;
+    overflow-wrap: anywhere;
   }
 `;

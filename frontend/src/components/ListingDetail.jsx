@@ -5,7 +5,7 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import Toast from "./Toast";
-import EditListing from "./EditListing";
+import EditListing, { ReplacePhotoInput } from "./EditListing";
 import { ProgressDiv } from "./GlobalStyles/StyleUtility";
 import conditionColor from "../utils/conditionColor";
 import { ConditionDot } from "./GlobalStyles/StyleCard";
@@ -145,9 +145,12 @@ export default function ListingDetail() {
         <DetailWrapper>
           <DetailLeft>
             {listingDetail ? (
-              <DetailImage>
-                <img src={listingDetail.image_url} alt={listingDetail.title} />
-              </DetailImage>
+              <>
+                <DetailImage>
+                  <img src={listingDetail.image_url} alt={listingDetail.title} />
+                </DetailImage>
+                {isEditing && <ReplacePhotoInput />}
+              </>
             ) : (
               <div>No detail found</div>
             )}
