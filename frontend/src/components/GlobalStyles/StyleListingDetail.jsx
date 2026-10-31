@@ -15,6 +15,13 @@ export const DetailWrapper = styled.div`
   border-radius: 12px;
   overflow: hidden;
   min-height: 420px;
+
+  /* Phones: photo on top, info below, with a 16px gutter at the screen edges. */
+  @media (max-width: 768px) {
+    flex-direction: column;
+    margin: 0 16px;
+    min-height: 0;
+  }
 `;
 
 export const DetailLeft = styled.div`
@@ -28,6 +35,13 @@ export const DetailLeft = styled.div`
   justify-content: center;
   padding: 1.5rem;
   border-right: 0.5px solid #e0e0e0;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 0.5px solid #e0e0e0;
+  }
 `;
 
 export const DetailImage = styled.div`
@@ -53,6 +67,11 @@ export const DetailRight = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    padding: 1.25rem;
+  }
 `;
 
 export const DetailTitleBlock = styled.div`
@@ -179,14 +198,17 @@ export const DetailInfoCard = styled.div`
 export const DetailSeller = styled.div``;
 
 // Owner's Edit / Delete buttons, in the spot where buyers see Add to Cart.
-// flex: 1 splits the row evenly; wrap lets them stack if there's no room.
+// Each button grows to share the row but never shrinks below its one-line
+// label (nowrap + basis auto), so on narrow screens the row wraps into two
+// full-width buttons instead of breaking a label onto two lines.
 export const OwnerActions = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
 
   > * {
-    flex: 1;
+    flex: 1 0 auto;
+    white-space: nowrap;
   }
 `;
 
