@@ -4,10 +4,16 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import Toast from "./Toast";
 import EditListing, { ReplacePhotoInput } from "./EditListing";
 import { ProgressDiv } from "./GlobalStyles/StyleUtility";
 import conditionColor from "../utils/conditionColor";
+import apiErrorMessage from "../utils/apiErrorMessage";
 import { ConditionDot } from "./GlobalStyles/StyleCard";
 
 import {
@@ -29,6 +35,7 @@ export default function ListingDetail() {
   const [listingDetail, setListingDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [alert, setAlert] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -87,12 +94,27 @@ export default function ListingDetail() {
       });
 
       if (response.ok) {
-        navigate("/profile");
-      } else {
-        console.error("Failed to delete listing");
+        // The profile page shows this toast (see routes/profile.jsx).
+        navigate("/profile", {
+          state: { toast: `“${listingDetail.title}” was deleted.` },
+        });
+        return;
       }
+      const body = await response.json().catch(() => null);
+      setConfirmDelete(false);
+      setToast({
+        open: true,
+        message: apiErrorMessage(body, "Couldn't delete your listing."),
+        severity: "error",
+      });
     } catch (error) {
       console.error("Error deleting listing:", error);
+      setConfirmDelete(false);
+      setToast({
+        open: true,
+        message: "Couldn't reach the server. Please try again.",
+        severity: "error",
+      });
     }
   };
 
@@ -220,11 +242,7 @@ export default function ListingDetail() {
                       variant="outlined"
                       color="error"
                       type="button"
-                      onClick={() => {
-                        if (window.confirm("Are you sure you wish to delete this item?")) {
-                          handleDelete();
-                        }
-                      }}
+                      onClick={() => setConfirmDelete(true)}
                     >
                       Delete Listing
                     </Button>
@@ -252,6 +270,36 @@ export default function ListingDetail() {
           </DetailRight>
         </DetailWrapper>
       )}
+
+      {/* zIndex above the nav (9999), which would otherwise paint over the
+          dialog's dimmed backdrop. */}
+      <Dialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        aria-labelledby="delete-dialog-title"
+        sx={{ zIndex: 10000 }}
+      >
+        <DialogTitle id="delete-dialog-title">Delete this listing?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            “{listingDetail?.title}” will be removed from Fox Body Swap Meet.
+            This can’t be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          {/* autoFocus on the safe choice, so pressing Enter keeps it. */}
+          <Button
+            variant="outlined"
+            onClick={() => setConfirmDelete(false)}
+            autoFocus
+          >
+            Keep it
+          </Button>
+          <Button variant="contained" color="error" onClick={handleDelete}>
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
