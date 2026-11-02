@@ -188,7 +188,17 @@
       links; long welcome text + login form hidden there via media queries
 - [x] "Current Listings" heading row with a listing count on phones
 - [x] Homepage welcome paragraph moved into the About Us intro
-- [ ] Compact 2-column listing grid on phones (shared Card component) — separate PR
+- [x] Compact 2-column listing grid on phones (shared Card component) — separate PR
 - [ ] Shrink the logo banner on phones (about 180px above the welcome card)
 - [ ] Signed-in phone homepage still shows the long welcome text; first
       listing starts around 790px. Consider a short signed-in header instead
+
+## Listing grid on phones (feature/listing-grid-2col)
+
+- [x] Shared ListingCard component for home, search, and Your Listings
+      (Your Listings now gets the hover shadow too)
+- [x] 2-column listing grid at <=640px on all three pages
+- [x] Compact phone cards: square photos, titles up to 2 lines, price
+      stacked above condition, tighter spacing
+- [ ] Search page: "No data found" and "No items matching" can both show,
+      and listingSearch.length crashes if the search request fails
