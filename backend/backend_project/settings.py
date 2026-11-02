@@ -177,7 +177,11 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
+    # Short-lived: the frontend's apiFetch renews it silently on a 401, so users
+    # never notice, and a stolen access token is only useful for minutes.
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    # With rotation, every refresh issues a new 10-day refresh token, so this is
+    # an idle timeout: 10 days without using the site and you log in again.
     "REFRESH_TOKEN_LIFETIME": timedelta(days=10),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
