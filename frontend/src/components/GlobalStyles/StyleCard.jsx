@@ -84,6 +84,51 @@ export const Card = styled.div`
     color: #9ca3af;
     margin-top: 0.45rem;
   }
+
+  /* Phones: cards are ~165px wide in the 2-column grid, so compact them. */
+  @media (max-width: 640px) {
+    .cardImage {
+      aspect-ratio: 1 / 1;
+    }
+
+    .cardBody {
+      padding: 10px 10px 12px;
+    }
+
+    /* Up to two lines, then "…". min-height reserves both lines, so cards
+       in the same row line up even when one title is short. */
+    h2 {
+      font-size: 14px;
+      line-height: 1.3;
+      min-height: 2.6em;
+      margin: 0 0 8px;
+      text-align: left;
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+    }
+
+    /* Price above condition: side by side they collide at this width. */
+    .cardMeta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .conditionRow {
+      font-size: 12px;
+    }
+
+    .seller {
+      font-size: 11px;
+      margin: 6px 0 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
 `;
 
 export const PriceBadge = styled.span`
