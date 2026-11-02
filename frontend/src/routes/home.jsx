@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import Button from "@mui/material/Button";
 import DisplayListings from "../components/DisplayListings";
 import { Text } from "../components/GlobalStyles/StyleText";
 import {
@@ -5,6 +7,7 @@ import {
   HomeWelcome,
   HomeLogin,
   HomeWrapper,
+  MobileWelcome,
 } from "../components/GlobalStyles/StyleHome";
 import LoginForm from "../components/LoginForm";
 import { useAuth } from "../AuthContext";
@@ -14,7 +17,32 @@ export default function HomePage() {
 
   return (
     <HomeContainer>
-      <HomeWrapper $justify={isAuth ? "center" : "space-between"}>
+      {/* Both versions are always in the page; CSS media queries in StyleHome
+          show MobileWelcome at <=640px and HomeWrapper above that. */}
+      {!isAuth && (
+        <MobileWelcome aria-label="Welcome">
+          <h1>Welcome to Fox Body Swap Meet</h1>
+          <p className="tagline">
+            {"Buy and sell new and used parts for '79–'93 Fox Body Mustangs."}
+          </p>
+          <div className="actions">
+            <Button component={Link} to="/login" variant="contained" fullWidth>
+              Log In
+            </Button>
+            <Button component={Link} to="/register" variant="outlined" fullWidth>
+              Register
+            </Button>
+          </div>
+          <p className="newHere">
+            New here? <Link to="/howitworks">How it Works</Link> ·{" "}
+            <Link to="/aboutus">About Us</Link>
+          </p>
+        </MobileWelcome>
+      )}
+      <HomeWrapper
+        $justify={isAuth ? "center" : "space-between"}
+        $hideOnPhone={!isAuth}
+      >
         <HomeWelcome>
           <Text>
             <h2>Welcome to Fox Body Swap Meet</h2>

@@ -18,12 +18,15 @@ export const HomeWrapper = styled.div`
 
   @media (max-width: 640px) {
     margin: 0 1rem;
+    /* Signed out on a phone, MobileWelcome replaces this block. */
+    display: ${({ $hideOnPhone }) => ($hideOnPhone ? "none" : "flex")};
   }
 `;
 
 export const HomeWelcome = styled.div`
   ul {
     list-style-type: none;
+    padding-left: 0; /* line up with the paragraph above (browsers indent <ul>) */
     li {
       margin-bottom: 1rem;
     }
@@ -33,4 +36,51 @@ export const HomeWelcome = styled.div`
 export const HomeLogin = styled.div`
   flex: 0 0 280px;
   max-width: 100%;
+`;
+
+// Phone-only welcome card for signed-out visitors. Hidden above 640px, where
+// the full welcome text + login form (HomeWrapper) shows instead.
+export const MobileWelcome = styled.section`
+  display: none;
+
+  @media (max-width: 640px) {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 16px 0;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .tagline {
+    margin: 0;
+    color: #4b5563;
+    font-size: 15px;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .actions a {
+    min-height: 46px;
+  }
+
+  .newHere {
+    margin: 0;
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+  }
 `;
