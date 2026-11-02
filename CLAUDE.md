@@ -70,7 +70,9 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   field and `get_queryset` filters to the requesting user.
 - Auth: SimpleJWT. `CustomTokenObtainPairSerializer` adds `userId`, `username`,
   and `name` to the token response. Logout blacklists the refresh token. Access
-  token lives 2 days, refresh 10, with rotation + blacklist-after-rotation.
+  token lives 30 minutes, refresh 10 days, with rotation + blacklist-after-rotation
+  (each refresh issues a new 10-day refresh token, so it's an idle timeout). The
+  short access lifetime relies on the frontend's automatic refresh (`apiFetch`).
 - Permissions: per-view. `ListingViewSet` uses `IsAuthenticatedOrReadOnly` +
   custom `IsOwnerOrReadOnly` (owner-only writes, public reads). There is **no**
   global `DEFAULT_PERMISSION_CLASSES` — every view sets its own, so check
@@ -101,11 +103,27 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
 - **All API calls must import `API_BASE_URL` from `src/config.js`** — never
   hardcode the backend URL. `config.js` reads `VITE_API_BASE_URL` and falls back
   to the prod Railway URL.
-- Auth state lives in `localStorage` (`access_token`, `refresh_token`, `username`,
-  `userId`), set on login in `LoginForm.jsx`. `src/AuthContext.jsx` exists but is
-  currently unused (commented out in `main.jsx`) — auth is read directly from
-  `localStorage` in components. Authenticated requests send
-  `Authorization: Bearer <access_token>`.
+- Auth tokens are stored in `localStorage` (`access_token`, `refresh_token`,
+  `username`, `userId`), set on login in `LoginForm.jsx`. **`AuthContext` is the
+  source of truth for UI auth state**: read `isAuth` / `username` / `logout` from
+  `useAuth()` (the provider wraps everything in `routes/root.jsx`), never check
+  `localStorage` for a token to decide if someone is signed in. On mount it
+  decodes the tokens (`utils/jwt.js`, decode only, not verify): if the refresh token is
+  missing or expired, the visitor is signed out quietly. If only the access token
+  expired, it refreshes in the background.
+- **Authenticated requests go through `utils/apiFetch.js`**: `apiFetch(path,
+  options)` adds `API_BASE_URL` and the Bearer header, sets JSON Content-Type
+  for string bodies (never for FormData), and returns the `Response`. On a 401
+  it calls `/token/refresh/` once (a single shared in-flight refresh, because
+  rotation + blacklist makes parallel refreshes with the same token fail),
+  stores the new access **and** refresh tokens, and retries once. If refresh
+  fails, `utils/session.js#handleSessionExpired` clears auth and does a full
+  redirect to `/login?next=…`, where `LoginForm` shows "Your session expired"
+  and returns the user to `next` (relative paths only, to block open redirects).
+  Public GETs (listings, search) stay on plain `fetch` with no token: SimpleJWT
+  401s a bad token even on public endpoints, which would bounce browsing users
+  to login. `/token/`, `/token/refresh/`, `/register/`, and the logout call
+  don't use `apiFetch`.
 - User feedback: use the shared `components/Toast.jsx` (MUI Snackbar) and
   `utils/apiErrorMessage.js`. After a redirect, pass the message via
   `navigate(path, { state: { toast } })`; `ListingDetail` and the profile page show it.
