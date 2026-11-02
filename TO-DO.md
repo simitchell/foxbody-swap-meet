@@ -153,7 +153,7 @@
       "was deleted" toast on /profile
 - [x] Detail card stacks on phones; removed the unlinked /editlisting/:id/ route
 - [ ] Preview the replacement photo before saving
-- [ ] Add to Cart shows "Added to your cart!" before the request finishes,
+- [x] Add to Cart shows "Added to your cart!" before the request finishes,
       even if it fails; move it to the shared Toast after a successful response
 
 ## Session expiry & auth (fix/session-expiry)
