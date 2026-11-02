@@ -1,4 +1,3 @@
-import { API_BASE_URL } from "../config";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 // import { Button } from "../components/GlobalStyles/StyleUtility";
@@ -7,9 +6,9 @@ import { Form } from "../components/GlobalStyles/StyleUtility";
 import { CreateListingContainer } from "./GlobalStyles/StyleCreateListing";
 import Toast from "./Toast";
 import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
 
 export default function ListingForm() {
-  const auth = localStorage.getItem("access_token");
   const navigate = useNavigate();
   const updateForm = useRef(null);
   const [toast, setToast] = useState({ open: false, message: "" });
@@ -18,13 +17,9 @@ export default function ListingForm() {
     e.preventDefault();
     const formData = new FormData(updateForm.current);
 
-    const url = `${API_BASE_URL}/listing/`;
     try {
-      const data = await fetch(url, {
+      const data = await apiFetch("/listing/", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
         body: formData,
       });
 

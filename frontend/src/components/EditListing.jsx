@@ -1,10 +1,10 @@
-import { API_BASE_URL } from "../config";
 import { useRef, useState } from "react";
 import Button from "@mui/material/Button";
 import { EditForm } from "./GlobalStyles/StyleUtility";
 import { ReplacePhotoLabel } from "./GlobalStyles/StyleListingDetail";
 import Toast from "./Toast";
 import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
 
 // The photo input lives in the left column, outside the <form>. Its form
 // attribute points at this id, so the browser still treats it as one of the
@@ -14,7 +14,6 @@ export const EDIT_LISTING_FORM_ID = "edit-listing-form";
 // Edit form for a listing. ListingDetail owns the listing data and edit mode;
 // this just edits what it's given and reports back through onSaved/onCancel.
 export default function EditListing({ listing, onSaved, onCancel }) {
-  const auth = localStorage.getItem("access_token");
   const updateForm = useRef(null);
   const [toast, setToast] = useState({
     open: false,
@@ -43,13 +42,9 @@ export default function EditListing({ listing, onSaved, onCancel }) {
       return;
     }
 
-    const url = `${API_BASE_URL}/listing/${listing.id}/`;
     try {
-      const response = await fetch(url, {
+      const response = await apiFetch(`/listing/${listing.id}/`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
         body: changes,
       });
 

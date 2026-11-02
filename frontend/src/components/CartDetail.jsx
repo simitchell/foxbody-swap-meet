@@ -1,10 +1,12 @@
-import { API_BASE_URL } from "../config";
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import { ConditionDot, NoDataDiv } from "./GlobalStyles/StyleCard";
 import conditionColor from "../utils/conditionColor";
+import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
+import Toast from "./Toast";
 import {
   CartDiv,
   CartHeader,
@@ -27,22 +29,16 @@ import {
 } from "./GlobalStyles/StyleCart";
 
 export default function CartDetail() {
-  const auth = localStorage.getItem("access_token");
   const [isLoading, setIsLoading] = useState(true);
   const [cartData, setCartData] = useState(null);
   const [taxes, setTaxes] = useState(0);
   const [cartTotal, setCartTotal] = useState(0); // New state for the total
   const location = useLocation();
+  const [toast, setToast] = useState({ open: false, message: "", severity: "error" });
 
   const getCart = async () => {
     try {
-      const apiUrl = `${API_BASE_URL}/cart/`;
-      const response = await fetch(apiUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
-      });
+      const response = await apiFetch("/cart/");
 
       if (response.ok) {
         const data = await response.json();
@@ -59,22 +55,26 @@ export default function CartDetail() {
   };
 
   const handleDelete = async (id) => {
-    const apiUrl = `${API_BASE_URL}/cart/item/${id}/`;
     try {
-      const response = await fetch(apiUrl, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
-      });
+      const response = await apiFetch(`/cart/item/${id}/`, { method: "DELETE" });
 
       if (response.ok) {
         getCart();
-      } else {
-        console.error("Failed to delete listing");
+        return;
       }
+      const body = await response.json().catch(() => null);
+      setToast({
+        open: true,
+        message: apiErrorMessage(body, "Couldn't remove that item."),
+        severity: "error",
+      });
     } catch (error) {
-      console.error("Error deleting listing:", error);
+      console.error("Error removing cart item:", error);
+      setToast({
+        open: true,
+        message: "Couldn't reach the server. Please try again.",
+        severity: "error",
+      });
     }
   };
 
@@ -103,6 +103,12 @@ export default function CartDetail() {
 
   return (
     <CartDiv>
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        severity={toast.severity}
+        onClose={() => setToast({ ...toast, open: false })}
+      />
       {isLoading ? (
         <ProgressDiv>
           <CircularProgress />

@@ -1,4 +1,3 @@
-import { API_BASE_URL } from "../config";
 import React from "react";
 import { useState, useEffect, useRef } from "react";
 import { useRevalidator, useParams, useNavigate } from "react-router-dom";
@@ -30,7 +29,6 @@ export default function ProfileDetail({ isEditing, onDone }) {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const updateForm = useRef(null);
-  const auth = localStorage.getItem("access_token");
   const revalidator = useRevalidator();
   const [toast, setToast] = useState({
     open: false,
@@ -43,16 +41,11 @@ export default function ProfileDetail({ isEditing, onDone }) {
 
   const getIndividualProfile = async () => {
     try {
-      const apiUrl = `${API_BASE_URL}/profile/${localStorage.getItem(
-        "userId"
-      )}/`;
-      const response = await fetch(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
-      });
-      const data = await response.json();
-      setProfileDetail(data);
+      const response = await apiFetch(
+        `/profile/${localStorage.getItem("userId")}/`
+      );
+      // On failure leave profileDetail null, which shows "Couldn't load".
+      if (response.ok) setProfileDetail(await response.json());
       // console.log(data);
     } catch (error) {
       console.log(error);
