@@ -10,6 +10,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Toast from "./Toast";
 import StateSelect from "./StateSelect";
 import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
 
 // Newest year first, back to 1979 (the first Fox body model year). Matches the
 // limits the backend enforces on enthusiast_since.
@@ -105,14 +106,9 @@ export default function ProfileDetail({ isEditing, onDone }) {
   };
 
   const handlePatch = async (formData) => {
-    const apiUrl = `${API_BASE_URL}/profile/${localStorage.getItem(
-      "userId"
-    )}/`;
-    return fetch(apiUrl, {
+    // FormData body: apiFetch leaves Content-Type for the browser to set.
+    return apiFetch(`/profile/${localStorage.getItem("userId")}/`, {
       method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${auth}`,
-      },
       body: formData,
     });
   };

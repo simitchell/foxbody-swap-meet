@@ -14,6 +14,7 @@ import EditListing, { ReplacePhotoInput } from "./EditListing";
 import { ProgressDiv } from "./GlobalStyles/StyleUtility";
 import conditionColor from "../utils/conditionColor";
 import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
 import { ConditionDot } from "./GlobalStyles/StyleCard";
 
 import {
@@ -124,14 +125,9 @@ export default function ListingDetail() {
     e.preventDefault();
     setAlert(true);
 
-    const url = `${API_BASE_URL}/cart/`;
     try {
-      const response = await fetch(url, {
+      const response = await apiFetch("/cart/", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           user_id: parseInt(localStorage.getItem("userId")),
           cart_item: listingDetail.title,
