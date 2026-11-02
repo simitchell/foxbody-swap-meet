@@ -153,5 +153,28 @@
       "was deleted" toast on /profile
 - [x] Detail card stacks on phones; removed the unlinked /editlisting/:id/ route
 - [ ] Preview the replacement photo before saving
-- [ ] Add to Cart shows "Added to your cart!" before the request finishes,
+- [x] Add to Cart shows "Added to your cart!" before the request finishes,
       even if it fails; move it to the shared Toast after a successful response
+
+## Session expiry & auth (fix/session-expiry)
+
+- [x] utils/apiFetch.js: Bearer header, silent refresh on 401 with a single
+      shared in-flight refresh, saves rotated refresh token, retries once
+- [x] utils/jwt.js isTokenExpired (decode only, no library)
+- [x] Expired session: clear auth, redirect to /login?next=…, "Your session
+      expired" Toast, return to the original page (relative paths only)
+- [x] AuthContext is the source of truth (navbar, home, logout); checks
+      tokens on load and signs out quietly if the refresh token is dead
+- [x] All authenticated calls use apiFetch; Add to Cart and cart removal
+      show success/error Toasts (resolves the "Added to your cart!" item
+      under Listing detail); login alert() replaced with the error Toast
+- [x] Access token lifetime 2 days -> 30 minutes (refresh stays 10 days)
+- [ ] Consider httpOnly-cookie JWT storage instead of localStorage (XSS
+      hardening) — larger backend/CORS change, separate PR
+- [ ] Logout with an expired access token can't blacklist the refresh token
+      (/logout/ requires auth); refresh first, or let /logout/ accept just
+      the refresh token
+- [ ] Route guards: signed-out visitors on /profile, /cart, /createlisting
+      see empty states instead of being sent to /login?next=…
+- [ ] A network error during refresh logs the user out; consider keeping
+      the session and showing a "Couldn't reach the server" Toast instead

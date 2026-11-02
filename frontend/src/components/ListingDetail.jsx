@@ -3,7 +3,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import Alert from "@mui/material/Alert";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -14,6 +13,7 @@ import EditListing, { ReplacePhotoInput } from "./EditListing";
 import { ProgressDiv } from "./GlobalStyles/StyleUtility";
 import conditionColor from "../utils/conditionColor";
 import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
 import { ConditionDot } from "./GlobalStyles/StyleCard";
 
 import {
@@ -31,12 +31,10 @@ import {
 } from "./GlobalStyles/StyleListingDetail";
 
 export default function ListingDetail() {
-  const auth = localStorage.getItem("access_token");
   const [listingDetail, setListingDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [alert, setAlert] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const [toast, setToast] = useState({
@@ -84,14 +82,8 @@ export default function ListingDetail() {
   };
 
   const handleDelete = async () => {
-    const apiUrl = `${API_BASE_URL}/listing/${id}/`;
     try {
-      const response = await fetch(apiUrl, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
-      });
+      const response = await apiFetch(`/listing/${id}/`, { method: "DELETE" });
 
       if (response.ok) {
         // The profile page shows this toast (see routes/profile.jsx).
@@ -122,16 +114,10 @@ export default function ListingDetail() {
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
-    setAlert(true);
 
-    const url = `${API_BASE_URL}/cart/`;
     try {
-      const response = await fetch(url, {
+      const response = await apiFetch("/cart/", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${auth}`,
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           user_id: parseInt(localStorage.getItem("userId")),
           cart_item: listingDetail.title,
@@ -142,10 +128,22 @@ export default function ListingDetail() {
       });
 
       if (!response.ok) {
-        console.error("Failed to add to cart");
+        const body = await response.json().catch(() => null);
+        setToast({
+          open: true,
+          message: apiErrorMessage(body, "Couldn't add this to your cart."),
+          severity: "error",
+        });
+        return;
       }
+      setToast({ open: true, message: "Added to cart", severity: "success" });
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error adding to cart:", error);
+      setToast({
+        open: true,
+        message: "Couldn't reach the server. Please try again.",
+        severity: "error",
+      });
     }
   };
 
@@ -248,20 +246,15 @@ export default function ListingDetail() {
                     </Button>
                   </OwnerActions>
                 ) : (
-                  <>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      type="button"
-                      id="addToCartButton"
-                      onClick={handleAddToCart}
-                    >
-                      Add to Cart
-                    </Button>
-                    {alert && (
-                      <Alert severity="success">Added to your cart!</Alert>
-                    )}
-                  </>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    type="button"
+                    id="addToCartButton"
+                    onClick={handleAddToCart}
+                  >
+                    Add to Cart
+                  </Button>
                 )}
               </>
             ) : (

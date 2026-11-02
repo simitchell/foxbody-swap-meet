@@ -7,9 +7,10 @@ import {
   HomeWrapper,
 } from "../components/GlobalStyles/StyleHome";
 import LoginForm from "../components/LoginForm";
+import { useAuth } from "../AuthContext";
 
 export default function HomePage() {
-  const isAuth = localStorage.getItem("access_token");
+  const { isAuth } = useAuth();
 
   return (
     <HomeContainer>

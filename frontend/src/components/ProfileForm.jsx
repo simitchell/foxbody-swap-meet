@@ -1,4 +1,3 @@
-import { API_BASE_URL } from "../config";
 import React from "react";
 import { useState, useEffect, useRef } from "react";
 import { useRevalidator, useParams, useNavigate } from "react-router-dom";
@@ -10,6 +9,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Toast from "./Toast";
 import StateSelect from "./StateSelect";
 import apiErrorMessage from "../utils/apiErrorMessage";
+import apiFetch from "../utils/apiFetch";
 
 // Newest year first, back to 1979 (the first Fox body model year). Matches the
 // limits the backend enforces on enthusiast_since.
@@ -29,7 +29,6 @@ export default function ProfileDetail({ isEditing, onDone }) {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const updateForm = useRef(null);
-  const auth = localStorage.getItem("access_token");
   const revalidator = useRevalidator();
   const [toast, setToast] = useState({
     open: false,
@@ -42,16 +41,11 @@ export default function ProfileDetail({ isEditing, onDone }) {
 
   const getIndividualProfile = async () => {
     try {
-      const apiUrl = `${API_BASE_URL}/profile/${localStorage.getItem(
-        "userId"
-      )}/`;
-      const response = await fetch(apiUrl, {
-        headers: {
-          Authorization: `Bearer ${auth}`,
-        },
-      });
-      const data = await response.json();
-      setProfileDetail(data);
+      const response = await apiFetch(
+        `/profile/${localStorage.getItem("userId")}/`
+      );
+      // On failure leave profileDetail null, which shows "Couldn't load".
+      if (response.ok) setProfileDetail(await response.json());
       // console.log(data);
     } catch (error) {
       console.log(error);
@@ -105,14 +99,9 @@ export default function ProfileDetail({ isEditing, onDone }) {
   };
 
   const handlePatch = async (formData) => {
-    const apiUrl = `${API_BASE_URL}/profile/${localStorage.getItem(
-      "userId"
-    )}/`;
-    return fetch(apiUrl, {
+    // FormData body: apiFetch leaves Content-Type for the browser to set.
+    return apiFetch(`/profile/${localStorage.getItem("userId")}/`, {
       method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${auth}`,
-      },
       body: formData,
     });
   };
