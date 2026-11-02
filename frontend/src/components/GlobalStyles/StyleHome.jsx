@@ -10,8 +10,11 @@ export const HomeContainer = styled.div`
 export const HomeWrapper = styled.div`
   display: flex;
   flex-wrap: wrap;
+  gap: 24px;
   margin: 0 10%;
-  ${(justifyContent) => justifyContent};
+  /* $justify is a transient prop: styled-components reads it here but doesn't
+     pass it on to the DOM <div>. */
+  justify-content: ${({ $justify }) => $justify};
 
   @media (max-width: 640px) {
     margin: 0 1rem;

@@ -14,7 +14,7 @@ export default function HomePage() {
 
   return (
     <HomeContainer>
-      <HomeWrapper justifyContent={isAuth ? "center" : "space-between"}>
+      <HomeWrapper $justify={isAuth ? "center" : "space-between"}>
         <HomeWelcome>
           <Text>
             <h2>Welcome to Fox Body Swap Meet</h2>
