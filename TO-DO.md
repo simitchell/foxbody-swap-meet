@@ -178,3 +178,17 @@
       see empty states instead of being sent to /login?next=…
 - [ ] A network error during refresh logs the user out; consider keeping
       the session and showing a "Couldn't reach the server" Toast instead
+
+## Homepage on phones (feature/home-mobile-signed-out)
+
+- [x] Fix home row alignment: transient $justify prop (was rendering
+      [object Object]) and a 24px gap between welcome text and login form
+- [x] Compact signed-out welcome card on phones (<=640px): headline,
+      one-line tagline, Log In / Register buttons, How it Works / About Us
+      links; long welcome text + login form hidden there via media queries
+- [x] "Current Listings" heading row with a listing count on phones
+- [x] Homepage welcome paragraph moved into the About Us intro
+- [ ] Compact 2-column listing grid on phones (shared Card component) — separate PR
+- [ ] Shrink the logo banner on phones (about 180px above the welcome card)
+- [ ] Signed-in phone homepage still shows the long welcome text; first
+      listing starts around 790px. Consider a short signed-in header instead
