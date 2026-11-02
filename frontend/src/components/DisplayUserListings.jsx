@@ -1,20 +1,14 @@
 import { API_BASE_URL } from "../config";
-import {
-  CardContainer,
-  Card,
-  PriceBadge,
-  ConditionDot,
-  NoDataDiv,
-} from "./GlobalStyles/StyleCard";
+import { CardContainer, NoDataDiv } from "./GlobalStyles/StyleCard";
+import ListingCard from "./ListingCard";
 import { useState, useEffect } from "react";
 import React from "react";
 import CircularProgress from "@mui/material/CircularProgress";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   DisplayListingsContainer,
   ProgressDiv,
 } from "./GlobalStyles/StyleDisplayListing";
-import conditionColor from "../utils/conditionColor";
 
 export default function DisplayUserListings({ onCountChange }) {
   const [listingData, setListingData] = useState([]);
@@ -64,23 +58,7 @@ export default function DisplayUserListings({ onCountChange }) {
       ) : (
         <CardContainer>
           {filteredListings.map((listing) => (
-            <Link to={`/listingdetail/${listing.id}`} key={listing.id}>
-              <Card>
-                <div className="cardImage">
-                  <img src={listing.image_url} alt={listing.title} />
-                </div>
-                <div className="cardBody">
-                  <h2>{listing.title}</h2>
-                  <div className="cardMeta">
-                    <PriceBadge>${listing.price}</PriceBadge>
-                    <span className="conditionRow">
-                      <ConditionDot color={conditionColor(listing.condition)} />
-                      {listing.condition}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </Link>
+            <ListingCard key={listing.id} listing={listing} showSeller={false} />
           ))}
         </CardContainer>
       )}

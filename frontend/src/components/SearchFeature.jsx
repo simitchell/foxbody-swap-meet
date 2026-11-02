@@ -1,11 +1,11 @@
 import { API_BASE_URL } from "../config";
 import React, { useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react";
 import { NoDataDiv, ProgressDiv, SearchHeader } from "./GlobalStyles/StyleSearch";
-import { CardContainer, Card, PriceBadge, ConditionDot } from "./GlobalStyles/StyleCard";
+import { CardContainer } from "./GlobalStyles/StyleCard";
+import ListingCard from "./ListingCard";
 import CircularProgress from '@mui/material/CircularProgress';
-import conditionColor from "../utils/conditionColor";
 
 
 export default function Search() {
@@ -45,27 +45,7 @@ export default function Search() {
       ) : listingSearch ? (
         <CardContainer>
           {listingSearch.map((listing) => (
-            <Link to={`/listingdetail/${listing.id}`} key={listing.id}>
-              <Card className="card">
-                <div className="cardImage">
-                  <img src={listing.image_url} alt={listing.title} />
-                </div>
-                <div className="cardBody">
-                  <h2>{listing.title}</h2>
-                  <div className="cardMeta">
-                    <PriceBadge>${listing.price}</PriceBadge>
-                    <span className="conditionRow">
-                      <ConditionDot color={conditionColor(listing.condition)} />
-                      {listing.condition}
-                    </span>
-                  </div>
-                  <p className="seller">
-                        {listing.username}
-                        {listing.seller_state && ` · ${listing.seller_state}`}
-                      </p>
-                </div>
-              </Card>
-            </Link>
+            <ListingCard key={listing.id} listing={listing} />
           ))}
         </CardContainer>
       ) : (
