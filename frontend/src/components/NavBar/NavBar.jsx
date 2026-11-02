@@ -4,10 +4,11 @@ import { Nav, NavLeft, NavRight, HamburgerButton } from "./StyleNav";
 import Button from "@mui/material/Button";
 import { Link, useNavigate } from "react-router-dom";
 import { LogoSVGSmall } from "../../../public/FoxBodySwapMeetLogoSmall";
+import { useAuth } from "../../AuthContext";
 
 
 export default function MainNav() {
-  const isAuth = localStorage.getItem("access_token");
+  const { isAuth, username } = useAuth();
   const [search, setSearch] = useState("");
   const [lastSearch, setLastSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -83,7 +84,7 @@ export default function MainNav() {
                 <Link to="/cart">Cart</Link>
               </li>
               <li>
-                <Link to="/profile">{localStorage.getItem("username")}</Link>
+                <Link to="/profile">{username}</Link>
               </li>
             </>
           ) : (

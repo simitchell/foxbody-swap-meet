@@ -1,42 +1,17 @@
-import { API_BASE_URL } from "../config";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../AuthContext";
 import { Text } from "./GlobalStyles/StyleText";
 
 export default function LogoutPage() {
-  const { setIsAuth } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
-  console.log(setIsAuth());
-
-  const performLogout = async () => {
-    const url = `${API_BASE_URL}/logout/`;
-    const refresh_token = localStorage.getItem("refresh_token");
-    const access_token = localStorage.getItem("access_token");
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access_token}`,
-        },
-        body: JSON.stringify({ refresh_token }),
-      });
-
-      localStorage.clear();
-      setIsAuth(false);
-    } catch (error) {
-      console.error("ERROR", error);
-    }
-    navigate(`/`);
-    location.reload();
-  };
-
   useEffect(() => {
-    performLogout();
-  }, [navigate, setIsAuth]);
+    // logout() updates the context, so the navbar flips to signed-out without
+    // a page reload.
+    logout().then(() => navigate("/", { replace: true }));
+  }, [logout, navigate]);
 
   return (
     <Text>
