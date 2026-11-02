@@ -6,6 +6,13 @@ export default function AboutUsCopy() {
     <Text>
       <h2>About Us</h2>
       <p>
+        We are a community of automotive enthusiasts, passionate about
+        &apos;79-&apos;93 Ford Mustangs and the 5.0L legacy. Fox Body Swap Meet
+        is the marketplace we built for that community: one place to buy and
+        sell new and used parts for Fox Body Mustangs, for enthusiasts, by
+        enthusiasts.
+      </p>
+      <p>
         Fox Body Swap Meet exists to help owners keep their Fox Body Mustangs on
         the road for as long as possible. We have a passion for helping sellers
         liquidate their stockpiles of parts by connecting them with potential
