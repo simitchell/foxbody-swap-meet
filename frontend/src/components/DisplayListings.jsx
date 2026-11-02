@@ -1,19 +1,13 @@
 import { API_BASE_URL } from "../config";
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import CircularProgress from "@mui/material/CircularProgress";
 import {
   DisplayListingsContainer,
   ProgressDiv,
 } from "./GlobalStyles/StyleDisplayListing";
-import {
-  CardContainer,
-  Card,
-  PriceBadge,
-  ConditionDot,
-  NoDataDiv,
-} from "./GlobalStyles/StyleCard";
-import conditionColor from "../utils/conditionColor";
+import { CardContainer, NoDataDiv } from "./GlobalStyles/StyleCard";
+import ListingCard from "./ListingCard";
 
 export default function DisplayListings() {
   const [listingData, setListingData] = useState([]);
@@ -63,29 +57,7 @@ export default function DisplayListings() {
           {listingData.length > 0 ? (
             <CardContainer>
               {listingData.map((listing) => (
-                <Link to={`/listingdetail/${listing.id}`} key={listing.id}>
-                  <Card className="card">
-                    <div className="cardImage">
-                      <img src={listing.image_url} alt={listing.title} />
-                    </div>
-                    <div className="cardBody">
-                      <h2>{listing.title}</h2>
-                      <div className="cardMeta">
-                        <PriceBadge>${listing.price}</PriceBadge>
-                        <span className="conditionRow">
-                          <ConditionDot
-                            color={conditionColor(listing.condition)}
-                          />
-                          {listing.condition}
-                        </span>
-                      </div>
-                      <p className="seller">
-                        {listing.username}
-                        {listing.seller_state && ` · ${listing.seller_state}`}
-                      </p>
-                    </div>
-                  </Card>
-                </Link>
+                <ListingCard key={listing.id} listing={listing} />
               ))}
             </CardContainer>
           ) : (

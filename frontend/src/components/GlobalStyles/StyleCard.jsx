@@ -17,6 +17,15 @@ export const CardContainer = styled.div`
   a:hover .card {
     box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
   }
+
+  /* Phones: two equal columns. minmax(0, 1fr) rather than plain 1fr, because
+     1fr won't shrink a column below its content's natural width (e.g. a long
+     one-line title), which would push the grid wider than the screen. */
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 1rem 16px;
+  }
 `;
 
 export const Card = styled.div`
@@ -74,6 +83,51 @@ export const Card = styled.div`
     font-size: 12px;
     color: #9ca3af;
     margin-top: 0.45rem;
+  }
+
+  /* Phones: cards are ~165px wide in the 2-column grid, so compact them. */
+  @media (max-width: 640px) {
+    .cardImage {
+      aspect-ratio: 1 / 1;
+    }
+
+    .cardBody {
+      padding: 10px 10px 12px;
+    }
+
+    /* Up to two lines, then "…". min-height reserves both lines, so cards
+       in the same row line up even when one title is short. */
+    h2 {
+      font-size: 14px;
+      line-height: 1.3;
+      min-height: 2.6em;
+      margin: 0 0 8px;
+      text-align: left;
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+    }
+
+    /* Price above condition: side by side they collide at this width. */
+    .cardMeta {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .conditionRow {
+      font-size: 12px;
+    }
+
+    .seller {
+      font-size: 11px;
+      margin: 6px 0 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 `;
 
