@@ -4,6 +4,9 @@ export const DisplayListingsContainer = styled.div`
   .listingHeader {
     text-align: center;
   }
+  .listingCount {
+    display: none;
+  }
 `;
 
 export const ProgressDiv = styled.div`

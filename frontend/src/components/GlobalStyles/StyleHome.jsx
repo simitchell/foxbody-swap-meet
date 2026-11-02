@@ -1,9 +1,38 @@
 import styled from "styled-components";
+import { CardContainer } from "./StyleCard";
 
 export const HomeContainer = styled.div`
   .listingHeader {
     text-align: center;
     margin: 3rem;
+  }
+
+  /* Phones: heading on the left, listing count on the right. */
+  @media (max-width: 640px) {
+    .listingHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin: 24px 16px 12px;
+      text-align: left;
+    }
+    .listingHeader h2 {
+      margin: 0;
+    }
+    /* Two classes, so it beats DisplayListings' own .listingCount { display: none }. */
+    .listingHeader .listingCount {
+      display: inline;
+      color: #6b7280;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    /* The shared grid has 16px of padding; drop the top part here so the gap
+       under the heading row is just its 12px margin. The selector below is
+       the grid's own generated class, so this only applies inside the homepage. */
+    ${CardContainer} {
+      padding-top: 0;
+    }
   }
 `;
 

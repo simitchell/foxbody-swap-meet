@@ -46,6 +46,13 @@ export default function DisplayListings() {
     <DisplayListingsContainer>
       <div className="listingHeader">
         <h2>Current Listings</h2>
+        {/* Only once loaded, so it never flashes "0 listings". Hidden unless
+            a page shows it (the homepage does, on phones). */}
+        {!isLoading && (
+          <span className="listingCount">
+            {listingData.length} {listingData.length === 1 ? "listing" : "listings"}
+          </span>
+        )}
       </div>
       {isLoading ? (
         <ProgressDiv>
