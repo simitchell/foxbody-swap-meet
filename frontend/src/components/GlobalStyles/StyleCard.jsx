@@ -17,6 +17,15 @@ export const CardContainer = styled.div`
   a:hover .card {
     box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
   }
+
+  /* Phones: two equal columns. minmax(0, 1fr) rather than plain 1fr, because
+     1fr won't shrink a column below its content's natural width (e.g. a long
+     one-line title), which would push the grid wider than the screen. */
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 1rem 16px;
+  }
 `;
 
 export const Card = styled.div`
