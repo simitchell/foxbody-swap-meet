@@ -200,5 +200,5 @@
 - [x] 2-column listing grid at <=640px on all three pages
 - [x] Compact phone cards: square photos, titles up to 2 lines, price
       stacked above condition, tighter spacing
-- [ ] Search page: "No data found" and "No items matching" can both show,
-      and listingSearch.length crashes if the search request fails
+- [ ] Search page crashes if the search request fails: listingSearch stays
+      undefined and the "No data found" check reads listingSearch.length
