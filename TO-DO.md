@@ -202,3 +202,28 @@
       stacked above condition, tighter spacing
 - [ ] Search page crashes if the search request fails: listingSearch stays
       undefined and the "No data found" check reads listingSearch.length
+
+## Landscape phones and tablet widths (fix/landscape-phone-layout)
+
+- [x] Listing grid at 641–1023px: minmax(220px, 1fr) instead of
+      minmax(280px, 400px), so tablets and landscape phones get 3 columns
+      instead of one 400px column (home, search, Your Listings)
+- [x] Shared breakpoints (GlobalStyles/breakpoints.js): phone, compactHome
+      (portrait phones OR short landscape screens), navMenu
+- [x] Compact signed-out welcome card on landscape phones too (centered,
+      max 560px); heading row with listing count on landscape phones
+- [x] Homepage welcome text + login side by side down to ~860px, then
+      stacked with the login card centered (was stuck on the left when the
+      row wrapped, up to ~1100px wide)
+- [x] Shrink the logo banner on phones, portrait and landscape
+      (137/187px -> 86px)
+- [x] Nav collapses to the hamburger menu up to 1023px (was 768); the
+      signed-in links ran off the screen at 844
+- [ ] Long usernames can still overflow the desktop nav at ~1024–1070px;
+      cap the username link's width with an ellipsis
+- [ ] Desktop nav is 57px tall but the page reserves 50px for it (7px
+      overlap, hidden by the banner padding)
+- [ ] npm run lint fails on routes/home.jsx:52 (unescaped ' in '79-'93),
+      already on main
+- [ ] Check landscape on a real iPhone (notch safe areas narrow the
+      usable width)
