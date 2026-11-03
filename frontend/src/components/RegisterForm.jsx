@@ -13,18 +13,42 @@ export default function RegisterForm() {
   // const navigate = Navigate();
   const updateForm = useRef(null);
   const [errors, setErrors] = useState([]);
-  // Turnstile's implicit-render widget inserts its own hidden
-  // "cf-turnstile-response" input into the form once a human passes the
-  // check, so handleSubmit doesn't need to read this directly — it's only
-  // used to disable the submit button until that's happened.
+  // The Turnstile widget inserts its own hidden "cf-turnstile-response" input
+  // into the form once a human passes the check, so handleSubmit doesn't need
+  // to read this directly — it's only used to disable the submit button
+  // until that's happened.
   const [turnstileVerified, setTurnstileVerified] = useState(false);
+  const turnstileRef = useRef(null);
+  const turnstileWidgetId = useRef(null);
 
   useEffect(() => {
-    // The widget calls this by name (set via data-callback below), since
-    // implicit rendering reads it as a string, not a React closure.
-    window.onTurnstileVerified = () => setTurnstileVerified(true);
+    // index.html loads Turnstile in explicit mode, so draw the widget here,
+    // once this form exists. The script loads async and may not be ready
+    // when the form first mounts, so wait for window.turnstile.
+    let cancelled = false;
+    let timer;
+    const renderWidget = () => {
+      if (cancelled) return;
+      if (!window.turnstile) {
+        timer = setTimeout(renderWidget, 100);
+        return;
+      }
+      turnstileWidgetId.current = window.turnstile.render(turnstileRef.current, {
+        sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+        callback: () => setTurnstileVerified(true),
+        // An expired or failed check leaves a token the backend will reject.
+        "expired-callback": () => setTurnstileVerified(false),
+        "error-callback": () => setTurnstileVerified(false),
+      });
+    };
+    renderWidget();
     return () => {
-      delete window.onTurnstileVerified;
+      cancelled = true;
+      clearTimeout(timer);
+      if (turnstileWidgetId.current !== null) {
+        window.turnstile.remove(turnstileWidgetId.current);
+        turnstileWidgetId.current = null;
+      }
     };
   }, []);
 
@@ -53,6 +77,12 @@ export default function RegisterForm() {
         // non-JSON error response; keep the generic message
       }
       setErrors(messages);
+      // Turnstile tokens are single-use, so get a fresh one before the user
+      // fixes the form and resubmits.
+      if (turnstileWidgetId.current !== null) {
+        window.turnstile.reset(turnstileWidgetId.current);
+      }
+      setTurnstileVerified(false);
       return;
     }
 
@@ -107,11 +137,7 @@ export default function RegisterForm() {
               autoComplete="off"
             />
           </div>
-          <div
-            className="cf-turnstile"
-            data-sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
-            data-callback="onTurnstileVerified"
-          />
+          <div ref={turnstileRef} />
           {errors.length > 0 && (
             <ul style={{ color: "red", margin: "0.5rem 0", paddingLeft: "1.25rem" }}>
               {errors.map((msg, i) => (
