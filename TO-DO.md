@@ -296,3 +296,14 @@
       "Welcome, <name>!"
 - [ ] The welcome toast closes after 4s like every toast; it's long enough
       that a slower reader may miss it (consider a longer duration for it)
+
+## Logo banner and nav shift between pages (fix/layout-auto-margins)
+
+- [x] Logo banner and Main use margin: 0 auto, so flex auto margins no longer
+      split a short page's leftover height and move the logo
+- [x] Main uses flex: 1 0 auto instead of min-height: calc(100vh - 500px), so
+      the footer sits at the bottom of short pages without a magic number
+- [x] scrollbar-gutter: stable on html, so classic scrollbars no longer shift
+      the nav and centered content sideways between pages
+- [ ] Known tradeoff: with classic scrollbars, short pages show a 15px pale
+      strip beside the nav and footer (accepted; revisit if it bothers anyone)
