@@ -117,6 +117,9 @@ class Profile(models.Model):
             MaxValueValidator(current_year),
         ],
     )
+    # Internal: set when this account has been reported in the weekly signup
+    # digest (see the send_signup_digest command). Null means "not reported yet".
+    signup_digest_sent_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.user.username
