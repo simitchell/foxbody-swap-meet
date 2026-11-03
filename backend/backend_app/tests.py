@@ -1,13 +1,18 @@
-from datetime import date
+from datetime import date, timedelta
+from io import StringIO
 from unittest import mock
 
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.cache import cache
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Listing
+from .models import Listing, Profile
 
 PASSWORD = "S3cure-testpass!"
 
@@ -356,3 +361,98 @@ class RegistrationBotProtectionTests(APITestCase):
             response = self.register(**{"cf-turnstile-response": "good-token"})
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username="newbie").exists())
+
+
+class SignupDigestTests(TestCase):
+    def run_digest(self, *args):
+        out = StringIO()
+        call_command("send_signup_digest", *args, stdout=out)
+        return out.getvalue()
+
+    def unreported(self):
+        return Profile.objects.filter(signup_digest_sent_at__isnull=True)
+
+    def test_new_profiles_are_included_then_stamped(self):
+        old = make_user("old_timer")
+        Profile.objects.filter(user=old).update(signup_digest_sent_at=timezone.now())
+        later = make_user("later")
+        earlier = make_user("earlier")
+        User.objects.filter(pk=earlier.pk).update(
+            date_joined=timezone.now() - timedelta(days=2)
+        )
+
+        output = self.run_digest()
+
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.to, ["sam@foxbodyswapmeet.com"])
+        self.assertEqual(message.subject, "Fox Body Swap Meet: 2 new signups this week")
+        self.assertNotIn("old_timer", message.body)
+        # Oldest first.
+        self.assertLess(message.body.index("earlier"), message.body.index("later"))
+        self.assertIn("Site totals: 3 accounts, 0 listings", message.body)
+        self.assertIn("Sent digest with 2 signups", output)
+        self.assertFalse(self.unreported().exists())
+
+        # Already stamped, so the next run reports nobody.
+        self.run_digest()
+        self.assertEqual(
+            mail.outbox[1].subject, "Fox Body Swap Meet: No new signups this week"
+        )
+
+    def test_zero_signup_week_still_sends(self):
+        output = self.run_digest()
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+        self.assertEqual(message.subject, "Fox Body Swap Meet: No new signups this week")
+        self.assertIn("No new signups since the last digest", message.body)
+        self.assertIn("Site totals: 0 accounts, 0 listings", message.body)
+        self.assertIn("Sent digest with 0 signups", output)
+
+    def test_activity_counts_filled_fields_and_listings(self):
+        busy = make_user("busy", state="TX", city="Austin", bio="Notchback guy")
+        busy.first_name = "Bea"
+        busy.save()
+        for title in ("Hood", "Seats"):
+            Listing.objects.create(user=busy, username="busy", title=title, price=100)
+        make_user("quiet")
+
+        self.run_digest()
+
+        body = mail.outbox[0].body
+        busy_block, quiet_block = body.split("\nbusy\n")[1], body.split("\nquiet\n")[1]
+        self.assertIn("State:    TX", busy_block)
+        self.assertIn("Profile:  3 of 7 filled (name, city, bio)", busy_block)
+        self.assertIn("Listings: 2", busy_block)
+        self.assertIn("/admin/auth/user/%d/change/" % busy.pk, busy_block)
+        self.assertIn("State:    —", quiet_block)
+        self.assertIn("Profile:  not filled in yet", quiet_block)
+        self.assertIn("Listings: 0", quiet_block)
+
+    def test_send_failure_stamps_nothing_and_raises(self):
+        make_user("newbie")
+        with mock.patch(
+            "django.core.mail.message.EmailMessage.send",
+            side_effect=RuntimeError("resend is down"),
+        ):
+            with self.assertRaisesMessage(CommandError, "resend is down"):
+                self.run_digest()
+        self.assertEqual(self.unreported().count(), 1)
+
+    def test_dry_run_sends_and_stamps_nothing(self):
+        newbie = make_user("newbie")
+        output = self.run_digest("--dry-run")
+        self.assertEqual(mail.outbox, [])
+        self.assertEqual(self.unreported().count(), 1)
+        self.assertIn("newbie", output)
+        self.assertIn("would stamp profile ids [%d]" % newbie.profile.pk, output)
+
+    def test_html_in_username_is_escaped(self):
+        make_user("<b>bold</b>")
+        self.run_digest()
+        message = mail.outbox[0]
+        html = message.alternatives[0][0]
+        self.assertIn("&lt;b&gt;bold&lt;/b&gt;", html)
+        self.assertNotIn("<b>bold</b>", html)
+        # Plain text isn't rendered as HTML, so it shows the name as typed.
+        self.assertIn("<b>bold</b>", message.body)

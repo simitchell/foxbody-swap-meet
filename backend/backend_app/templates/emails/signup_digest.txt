@@ -1,0 +1,21 @@
+{% autoescape off %}{# Plain text is never rendered as HTML, so escaping would only garble names like "a<b". The .html version keeps autoescaping on. #}Fox Body Swap Meet signup digest
+{{ date }}
+
+Site totals: {{ total_users }} account{{ total_users|pluralize }}, {{ total_listings }} listing{{ total_listings|pluralize }}
+{% if signups %}
+New since the last digest ({{ signups|length }}), oldest first:
+{% for s in signups %}
+{{ s.username }}
+  Email:    {{ s.email }}
+  State:    {{ s.state }}
+  Joined:   {{ s.joined }}
+  Profile:  {{ s.profile }}
+  Listings: {{ s.listing_count }}
+  Admin:    {{ s.admin_url }}
+{% endfor %}{% else %}
+No new signups since the last digest. The weekly job ran fine; it was just a quiet week.
+{% endif %}
+--
+Fox Body Swap Meet
+{{ site_url }}
+{% endautoescape %}

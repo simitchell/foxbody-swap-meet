@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>{{ subject }}</title>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .page { background-color: #111111 !important; }
+        .card { background-color: #1c1c1e !important; }
+        .row { border-color: #3a3a3c !important; }
+        .text { color: #f2f2f2 !important; }
+        .muted { color: #b5b5b8 !important; }
+        .link { color: #64b5f6 !important; }
+      }
+    </style>
+  </head>
+  <body class="page" style="margin:0;padding:0;background-color:#f3f4f6;" bgcolor="#f3f4f6">
+    <!-- Every user-supplied value below relies on Django's autoescaping; never add |safe. -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="page" bgcolor="#f3f4f6" style="background-color:#f3f4f6;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;">
+            <!-- Logo plate: opaque white image so it reads in light and dark mode -->
+            <tr>
+              <td align="center" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:12px 12px 0 0;padding:16px 24px 12px;">
+                <img src="{{ site_url }}/FoxBodySwapMeetLogoEmail.png" width="260" height="65" alt="Fox Body Swap Meet" style="display:block;border:0;outline:none;width:260px;height:65px;max-width:100%;">
+              </td>
+            </tr>
+            <tr>
+              <td bgcolor="#ee3a24" height="6" style="background-color:#ee3a24;height:6px;font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td class="card" bgcolor="#ffffff" style="background-color:#ffffff;border-radius:0 0 12px 12px;padding:28px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;">
+                <p class="text" style="margin:0;color:#111111;font-size:20px;font-weight:bold;">Signup digest</p>
+                <p class="muted" style="margin:0 0 16px;color:#6b7280;font-size:13px;">{{ date }}</p>
+                <p class="text" style="margin:0 0 20px;color:#111111;">
+                  <strong>Site totals:</strong>
+                  {{ total_users }} account{{ total_users|pluralize }} &middot;
+                  {{ total_listings }} listing{{ total_listings|pluralize }}
+                </p>
+                {% if signups %}
+                <p class="text" style="margin:0 0 8px;color:#111111;">
+                  <strong>{{ signups|length }} new since the last digest</strong>, oldest first:
+                </p>
+                {% for s in signups %}
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="row" style="border-top:1px solid #e5e7eb;">
+                  <tr>
+                    <td style="padding:14px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;">
+                      <p class="text" style="margin:0 0 4px;color:#111111;font-size:16px;font-weight:bold;">{{ s.username }}</p>
+                      <p class="text" style="margin:0;color:#111111;">{{ s.email }} &middot; {{ s.state }}</p>
+                      <p class="muted" style="margin:0 0 6px;color:#6b7280;font-size:13px;">Joined {{ s.joined }}</p>
+                      <p class="text" style="margin:0;color:#111111;"><strong>Profile:</strong> {{ s.profile }}</p>
+                      <p class="text" style="margin:0 0 6px;color:#111111;"><strong>Listings:</strong> {{ s.listing_count }}</p>
+                      <a href="{{ s.admin_url }}" class="link" style="color:#1565c0;font-size:13px;">Open in Django admin</a>
+                    </td>
+                  </tr>
+                </table>
+                {% endfor %}
+                {% else %}
+                <p class="text" style="margin:0;color:#111111;">
+                  No new signups since the last digest. The weekly job ran fine;
+                  it was just a quiet week.
+                </p>
+                {% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td align="center" class="muted" style="padding:16px 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;">
+                Weekly admin digest &middot; <a href="{{ site_url }}" style="color:#6b7280;">foxbodyswapmeet.com</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

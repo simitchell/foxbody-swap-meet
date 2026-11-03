@@ -144,4 +144,19 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   `SEND_REAL_EMAIL=true` and `RESEND_API_KEY` are set, else the console backend.
   `backend/.env` holds the prod key, so never key off the API key alone.
   `django-anymail` is pinned to 14.0 (15.x requires a newer Django than 4.2).
-  Sending itself (welcome email in `RegisterView`) is not built yet.
+  Emails live in `emails.py` with templates under `templates/emails/`.
+  `send_welcome_email` runs from `RegisterView` and swallows errors so signup
+  never breaks.
+- Weekly signup digest: `manage.py send_signup_digest` emails
+  `SIGNUP_DIGEST_TO` a summary of profiles whose `signup_digest_sent_at` is
+  null, then stamps exactly those profiles. Unlike the welcome email it fails
+  loudly: a send error stamps nothing and raises `CommandError`, so the people
+  roll into the next digest. `--dry-run` prints and stamps nothing. It runs on
+  a separate Railway cron service, `signup-digest` (`0 13 * * 5`, Fridays
+  13:00 UTC; start command is the digest command, not the Procfile; variables
+  `DATABASE_URL`, `SECRET_KEY`, `RESEND_API_KEY`, `SEND_REAL_EMAIL`). Only run
+  it locally with the local-DB overrides: against prod it would stamp real
+  users while the email only prints to your console. Set
+  `BACKEND_URL=http://127.0.0.1:8000` locally if you want working admin links.
+- Plain-text email templates (`.txt`) are still auto-escaped by Django; wrap
+  them in `{% autoescape off %}` (HTML templates keep escaping on, never `|safe`).
