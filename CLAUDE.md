@@ -24,7 +24,7 @@ The venv lives at `backend/venv` (gitignored). Use `venv/bin/python`.
 venv/bin/python manage.py runserver 8000
 venv/bin/python manage.py migrate
 venv/bin/python manage.py makemigrations
-venv/bin/python manage.py test                 # profile address / seller_state tests; use the local DB overrides below
+venv/bin/python manage.py test                 # uses backend/.env's local DB (see below)
 venv/bin/python manage.py createsuperuser
 ```
 
@@ -37,19 +37,23 @@ npm run lint       # eslint, --max-warnings 0
 ```
 
 ### Local full-stack testing — DO NOT hit the prod database
-`backend/.env` points `DB_*` at the **production** Railway Postgres, and also holds
-the prod AWS keys. `settings.py` loads it into the environment, so a bare
-`runserver` would use the prod DB (unless `DATABASE_URL` is set), write uploads to the
-**prod S3 bucket**, and call real Rekognition. Override all of it for local work:
+`settings.py` loads `backend/.env`, which holds **local-only** values (as of Nov
+2026): the local `foxbody_local` Postgres, blank AWS keys (uploads go to local
+`mediafiles/`), `SKIP_IMAGE_MODERATION`, Cloudflare's always-pass Turnstile test
+secret, and no Resend key (emails print to the console). So a bare `manage.py`
+command is safe. Production values live only in Railway Variables, never in a
+local file; use `railway run <command>` for a deliberate one-off prod command.
+New machine: `cp backend/.env.example backend/.env` and fill in the two `<...>`
+placeholders. **Never put prod secrets back into `.env`**: a prod `DATABASE_URL`
+or `DB_*` there would point every local command (`migrate`, `shell`,
+`send_signup_digest`) at the production database.
 ```bash
-# Postgres via Postgres.app; default superuser is the macOS username, no password
-export DATABASE_URL="postgres://$(whoami)@localhost:5432/foxbody_local"
-export DEBUG=true                 # lets Django serve /media/ uploads (DEBUG is False otherwise)
-export AWS_ACCESS_KEY_ID=         # blank -> uploads go to local mediafiles/, not prod S3
-export SKIP_IMAGE_MODERATION=true # no AWS creds locally, so skip the Rekognition call
 venv/bin/python manage.py migrate
 venv/bin/python manage.py runserver 8000
 ```
+`dev.sh` also exports the local overrides (`DATABASE_URL`, `DEBUG`, blank
+`AWS_ACCESS_KEY_ID`, `SKIP_IMAGE_MODERATION`) as a backstop; shell exports beat
+`.env` (django-environ only fills unset variables).
 `npm run dev` reads `.env.development`, which points `VITE_API_BASE_URL` at
 `http://127.0.0.1:8000`, so the local UI talks to the local backend automatically.
 Don't `git stash` while `runserver` is up: the auto-reloader can restart on the stashed
@@ -142,7 +146,7 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   `CORS_ALLOWED_ORIGINS` together.
 - Email: `settings.py` uses django-anymail's Resend backend only when
   `SEND_REAL_EMAIL=true` and `RESEND_API_KEY` are set, else the console backend.
-  `backend/.env` holds the prod key, so never key off the API key alone.
+  Never key off the API key alone, so a stray key can't send real mail.
   `django-anymail` is pinned to 14.0 (15.x requires a newer Django than 4.2).
   Emails live in `emails.py` with templates under `templates/emails/`.
   `send_welcome_email` runs from `RegisterView` and swallows errors so signup
@@ -154,9 +158,9 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   roll into the next digest. `--dry-run` prints and stamps nothing. It runs on
   a separate Railway cron service, `signup-digest` (`0 13 * * 5`, Fridays
   13:00 UTC; start command is the digest command, not the Procfile; variables
-  `DATABASE_URL`, `SECRET_KEY`, `RESEND_API_KEY`, `SEND_REAL_EMAIL`). Only run
-  it locally with the local-DB overrides: against prod it would stamp real
-  users while the email only prints to your console. Set
+  `DATABASE_URL`, `SECRET_KEY`, `RESEND_API_KEY`, `SEND_REAL_EMAIL`). Never run
+  it locally against the prod DB: it would stamp real users while the email
+  only prints to your console. Set
   `BACKEND_URL=http://127.0.0.1:8000` locally if you want working admin links.
 - Plain-text email templates (`.txt`) are still auto-escaped by Django; wrap
   them in `{% autoescape off %}` (HTML templates keep escaping on, never `|safe`).

@@ -21,10 +21,11 @@ RUN_MIGRATE=false
 [[ "${1:-}" == "--migrate" ]] && RUN_MIGRATE=true
 
 # ---- Local-only overrides: NEVER hit prod ------------------------
-# backend/.env points DB_* at the production Railway Postgres and holds the
-# prod AWS keys. These win over it, so Django uses the local database, local
-# media storage, and skips the real Rekognition call. Exported before any
-# Django command so --migrate is covered too.
+# backend/.env already holds local-only values; these exports are a backstop
+# in case it ever gets prod values back. Shell exports win over .env, so
+# Django uses the local database, local media storage, and skips the real
+# Rekognition call. Exported before any Django command so --migrate is
+# covered too.
 export DATABASE_URL="postgres://$(whoami)@localhost:5432/foxbody_local"
 export DEBUG=true
 export AWS_ACCESS_KEY_ID=

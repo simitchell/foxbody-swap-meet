@@ -26,7 +26,8 @@
 
 ## Make it demoable
 
-- [ ] `.env.example` documenting every required env var (no real secrets).
+- [x] `.env.example` documenting every required env var (no real secrets).
+      (backend/.env.example, chore/local-env; frontend/.env.example already existed)
 - [ ] README quickstart that actually works from a clean clone.
 - [ ] Seed-data script so the site has listings to browse on first run.
 - [ ] Basic smoke tests (registration, create listing, add to cart) —
@@ -232,18 +233,23 @@
 
 ## Local backend/.env holds prod secrets (next, after the signup digest)
 
-- [ ] backend/.env has the prod DB password, prod AWS keys, and the prod
+- [x] backend/.env has the prod DB password, prod AWS keys, and the prod
       Resend key, and settings.py loads it, so any bare manage.py command
       (runserver, migrate, shell, send_signup_digest) hits production unless
       the dev.sh / CLAUDE.md overrides are exported. .env is gitignored, so
       Railway never reads it; prod gets its values from Railway Variables.
-- [ ] Before changing anything: confirm every value is set in Railway
+- [x] Before changing anything: confirm every value is set in Railway
       Variables, and save a copy of the prod secrets in a password manager
-- [ ] Rewrite backend/.env with local values: local DATABASE_URL, blank AWS
+- [x] Rewrite backend/.env with local values: local DATABASE_URL, blank AWS
       keys, a throwaway dev SECRET_KEY, no RESEND_API_KEY
-- [ ] Use `railway run <command>` for deliberate one-off prod commands
-- [ ] Update CLAUDE.md's "DO NOT hit the prod database" section and dev.sh
+- [x] Use `railway run <command>` for deliberate one-off prod commands
+      (documented in CLAUDE.md)
+- [x] Update CLAUDE.md's "DO NOT hit the prod database" section and dev.sh
       comments to match (overrides become a backstop, not the only guard)
+- [ ] Remove the unused PROFILE_NOTIFICATION_EMAIL variable from Railway
+      (leftover from feature/profile-email-notifications; no code reads it)
+- [ ] RENDER_EXTERNAL_HOSTNAME block in settings.py (duplicated, from the old
+      Render hosting) can be deleted
 
 ## Weekly signup digest (feature/weekly-signup-digest)
 
@@ -260,11 +266,21 @@
 - [x] Railway signup-digest cron service: `0 13 * * 5` (Fridays 13:00 UTC),
       start command `python manage.py send_signup_digest`, variables
       DATABASE_URL, SECRET_KEY, RESEND_API_KEY, SEND_REAL_EMAIL
-- [ ] After merge + web deploy: `railway cron run`, confirm the run completes
+- [x] After merge + web deploy: `railway cron run`, confirm the run completes
       and the email arrives
-- [ ] Sign up a test account, trigger a run (it's listed), trigger again
+- [x] Sign up a test account, trigger a run (it's listed), trigger again
       ("No new signups this week")
 - [ ] First scheduled Friday: email arrives and reads well on a phone
 - [ ] welcome.txt autoescapes like HTML, so a username with & or < shows as
       &amp; / &lt; in the plain-text welcome email (wrap it in
       {% autoescape off %} like signup_digest.txt)
+
+## Register button stuck disabled (fix/turnstile-explicit-render, #42)
+
+- [x] Turnstile implicit mode scanned the page once, before React mounted the
+      register form, so the widget never rendered and nobody could sign up.
+      Now loaded with render=explicit and rendered from RegisterForm
+- [x] Re-disable the button on expired/error; reset the widget after a failed
+      submit (tokens are single-use)
+- [ ] Find out how long signups were blocked (compare recent date_joined
+      values with when Turnstile was added)
