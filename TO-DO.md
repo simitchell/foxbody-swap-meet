@@ -284,3 +284,15 @@
       submit (tokens are single-use)
 - [ ] Find out how long signups were blocked (compare recent date_joined
       values with when Turnstile was added)
+
+## Log in automatically after registering (feature/register-auto-login)
+
+- [x] /register/ returns the same tokens as /token/ (built only after
+      validation, Turnstile, and save succeed), with tests
+- [x] startSession() in utils/session.js, shared by LoginForm and RegisterForm
+- [x] RegisterForm: save the session, load /profile/; falls back to /login if
+      the response has no tokens; no more alert()
+- [x] Profile page: new users land in the edit form with a welcome toast and
+      "Welcome, <name>!"
+- [ ] The welcome toast closes after 4s like every toast; it's long enough
+      that a slower reader may miss it (consider a longer duration for it)
