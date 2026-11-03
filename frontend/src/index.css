@@ -20,6 +20,12 @@
   -webkit-text-size-adjust: 100%;
 }
 
+/* Always reserve the scrollbar's space, so the nav and centered content don't
+   shift sideways between pages that scroll and pages that don't. */
+html {
+  scrollbar-gutter: stable;
+}
+
 html,
 body,
 #root {
