@@ -4,6 +4,17 @@ export function clearAuth() {
   AUTH_KEYS.forEach((key) => localStorage.removeItem(key));
 }
 
+// Saves a new session from a /token/ or /register/ response. Both login and
+// registration go through here, so they always store exactly the same keys.
+// Callers then do a full page load so AuthContext re-reads the new tokens.
+export function startSession({ access, refresh, userId, username }) {
+  clearAuth();
+  localStorage.setItem("username", username);
+  localStorage.setItem("userId", userId);
+  localStorage.setItem("access_token", access);
+  localStorage.setItem("refresh_token", refresh);
+}
+
 // Called by apiFetch when the session can't be renewed (the refresh token is
 // missing, expired, or blacklisted). Signs out and sends the user to log in,
 // remembering where they were so LoginForm can bring them back.
