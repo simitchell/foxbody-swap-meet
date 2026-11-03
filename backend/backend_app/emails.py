@@ -73,10 +73,19 @@ def _profile_summary(profile):
 def send_signup_digest(profiles, now):
     """Email the admin a summary of the given new profiles.
 
-    `profiles` should have `user` selected and a `listing_count` annotation
-    (the send_signup_digest command builds that queryset). Unlike
-    send_welcome_email this raises on failure, so the command can skip
+    Unlike send_welcome_email this raises on failure, so the command can skip
     stamping and the failed run shows up in Railway.
+    """
+    message = build_signup_digest(profiles, now)
+    message.send()
+    return message
+
+
+def build_signup_digest(profiles, now):
+    """Render the digest without sending it (used directly by --dry-run).
+
+    `profiles` should have `user` selected and a `listing_count` annotation
+    (the send_signup_digest command builds that queryset).
     """
     signups = [
         {
@@ -116,5 +125,4 @@ def send_signup_digest(profiles, now):
     message.attach_alternative(
         render_to_string("emails/signup_digest.html", context), "text/html"
     )
-    message.send()
     return message
