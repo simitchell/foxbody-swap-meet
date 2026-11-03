@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="https://fonts.google.com/specimen/Work+Sans?query=work+sans" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fox Body Swap Meet</title>
-    <!-- Cloudflare Turnstile: renders any element with class="cf-turnstile"
-         it finds, including ones added later by React (it watches the DOM). -->
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <!-- Cloudflare Turnstile, explicit mode: RegisterForm draws the widget
+         itself with turnstile.render(). Implicit mode only scans the page once
+         when this script runs, which is usually before React has drawn the form. -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   </head>
   <body>
     <div id="root"></div>
