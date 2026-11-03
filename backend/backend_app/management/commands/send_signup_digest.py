@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections
 from django.db.models import Count
 from django.utils import timezone
 
@@ -22,14 +21,10 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        try:
-            self._run(options["dry_run"])
-        finally:
-            # Railway cron waits for the process to exit; don't leave a
-            # Postgres connection holding it open.
-            connections.close_all()
-
-    def _run(self, dry_run):
+        # No explicit connection cleanup: the process exits when handle()
+        # returns or raises, which closes the DB connection and ends the
+        # Railway cron run.
+        dry_run = options["dry_run"]
         now = timezone.now()
         # list() runs the query once, so the email and the stamp below cover
         # exactly the same people even if someone signs up mid-send.
