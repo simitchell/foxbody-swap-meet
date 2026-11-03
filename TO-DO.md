@@ -11,8 +11,10 @@
 
 - [x] Welcome email: on registration, send from `noreply@foxbodyswapmeet.com`
       (or similar) to the new user's email address.
-- [ ] Admin notification email: on registration, send to
+- [x] Admin notification email: on registration, send to
       `sam@foxbodyswapmeet.com` announcing the new account (username + email).
+      (Done as a weekly digest instead of one email per signup; see
+      feature/weekly-signup-digest below.)
 - [x] Verify `foxbodyswapmeet.com` as a sending domain in Resend (SPF/DKIM)
       so mail doesn't land in spam.
 - [ ] Move slow external calls off the request path: send email asynchronously,
@@ -122,8 +124,8 @@
 
 - [x] Welcome email at account creation (done —
       feature/welcome-email branch, Resend + django-anymail)
-- [ ] Admin alert on new signup (salvage the idea from
-      feature/profile-email-notifications; build after welcome email)
+- [x] Admin alert on new signup (done as the weekly signup digest,
+      feature/weekly-signup-digest)
 
 ## Multi-image listings
 
@@ -242,3 +244,27 @@
 - [ ] Use `railway run <command>` for deliberate one-off prod commands
 - [ ] Update CLAUDE.md's "DO NOT hit the prod database" section and dev.sh
       comments to match (overrides become a backstop, not the only guard)
+
+## Weekly signup digest (feature/weekly-signup-digest)
+
+- [x] Profile.signup_digest_sent_at (null = not reported yet); migration 0034
+      backfills existing profiles so the first digest lists only new signups
+- [x] send_signup_digest email + templates: new accounts oldest first, with
+      state, signup time (ET), profile fields filled, listing count, admin
+      link; site totals; still sends on zero-signup weeks
+- [x] `manage.py send_signup_digest` command: stamps only the profiles it
+      emailed, after a successful send; a failed send stamps nothing and
+      exits non-zero; --dry-run prints and stamps nothing
+- [x] SignupDigestTests (stamping, zero-signup week, activity counts, send
+      failure, dry run, HTML escaping)
+- [x] Railway signup-digest cron service: `0 13 * * 5` (Fridays 13:00 UTC),
+      start command `python manage.py send_signup_digest`, variables
+      DATABASE_URL, SECRET_KEY, RESEND_API_KEY, SEND_REAL_EMAIL
+- [ ] After merge + web deploy: `railway cron run`, confirm the run completes
+      and the email arrives
+- [ ] Sign up a test account, trigger a run (it's listed), trigger again
+      ("No new signups this week")
+- [ ] First scheduled Friday: email arrives and reads well on a phone
+- [ ] welcome.txt autoescapes like HTML, so a username with & or < shows as
+      &amp; / &lt; in the plain-text welcome email (wrap it in
+      {% autoescape off %} like signup_digest.txt)
