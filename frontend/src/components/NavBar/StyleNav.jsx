@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { navMenu } from "../GlobalStyles/breakpoints";
 
 export const Nav = styled.nav`
   /* color-scheme: light dark; */
@@ -60,7 +61,7 @@ export const NavLeft = styled.div`
   width: 60%;
   /* margin-left: 7.5%; */
 
-  @media (max-width: 768px) {
+  @media ${navMenu} {
     flex: 1;
     width: auto;
     justify-content: flex-start;
@@ -97,7 +98,7 @@ export const NavRight = styled.div`
     padding: 8px;
   }
 
-  @media (max-width: 768px) {
+  @media ${navMenu} {
     display: ${({ $open }) => ($open ? "flex" : "none")};
     position: absolute;
     top: 50px;
@@ -128,7 +129,7 @@ export const HamburgerButton = styled.button`
   margin: auto 8px;
   line-height: 1;
 
-  @media (max-width: 768px) {
+  @media ${navMenu} {
     display: flex;
     align-items: center;
   }

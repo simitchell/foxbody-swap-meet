@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { CardContainer } from "./StyleCard";
+import { phone, compactHome } from "./breakpoints";
 
 export const HomeContainer = styled.div`
   .listingHeader {
@@ -7,8 +8,9 @@ export const HomeContainer = styled.div`
     margin: 3rem;
   }
 
-  /* Phones: heading on the left, listing count on the right. */
-  @media (max-width: 640px) {
+  /* Phones (portrait and landscape): heading on the left, listing count on
+     the right. */
+  @media ${compactHome} {
     .listingHeader {
       display: flex;
       justify-content: space-between;
@@ -45,14 +47,41 @@ export const HomeWrapper = styled.div`
      pass it on to the DOM <div>. */
   justify-content: ${({ $justify }) => $justify};
 
-  @media (max-width: 640px) {
+  /* Too narrow for text + login side by side (the row would wrap below
+     ~830px): stack them and center the login card under the text, instead of
+     letting flex-wrap drop it alone on the left. 860 rather than 830 leaves
+     room for a desktop scrollbar, which narrows the layout but not the width
+     a media query sees. */
+  @media (max-width: 860px) {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  @media ${phone} {
     margin: 0 1rem;
-    /* Signed out on a phone, MobileWelcome replaces this block. */
+  }
+
+  /* Signed out on a phone (portrait or landscape), MobileWelcome replaces
+     this block. Signed in, it still shows. */
+  @media ${compactHome} {
     display: ${({ $hideOnPhone }) => ($hideOnPhone ? "none" : "flex")};
   }
 `;
 
 export const HomeWelcome = styled.div`
+  /* Grow to fill the row, but shrink down to 360px before wrapping.
+     min-width: 0 lets it go below its content's natural width (flex items
+     default to min-width: auto, which would keep the long paragraph at full
+     width and force the login card onto its own line). */
+  flex: 1 1 360px;
+  min-width: 0;
+
+  /* Stacked (see HomeWrapper): in a column the flex-basis would set a 360px
+     height, so turn it off. */
+  @media (max-width: 860px) {
+    flex: none;
+  }
+
   ul {
     list-style-type: none;
     padding-left: 0; /* line up with the paragraph above (browsers indent <ul>) */
@@ -65,14 +94,22 @@ export const HomeWelcome = styled.div`
 export const HomeLogin = styled.div`
   flex: 0 0 280px;
   max-width: 100%;
+
+  /* Stacked: centered under the text, a bit wider than in the row. */
+  @media (max-width: 860px) {
+    flex: none;
+    width: 100%;
+    max-width: 420px;
+  }
 `;
 
-// Phone-only welcome card for signed-out visitors. Hidden above 640px, where
-// the full welcome text + login form (HomeWrapper) shows instead.
+// Phone-only welcome card for signed-out visitors (portrait and landscape).
+// Hidden elsewhere, where the full welcome text + login form (HomeWrapper)
+// shows instead.
 export const MobileWelcome = styled.section`
   display: none;
 
-  @media (max-width: 640px) {
+  @media ${compactHome} {
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -81,6 +118,14 @@ export const MobileWelcome = styled.section`
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
+  }
+
+  /* Landscape phones: the card is only visible here via compactHome, so this
+     only matters there. Cap and center it so the buttons aren't stretched
+     across an 844px-wide screen. */
+  @media (min-width: 641px) {
+    max-width: 560px;
+    margin: 16px auto 0;
   }
 
   h1 {

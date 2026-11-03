@@ -18,7 +18,8 @@ export default function HomePage() {
   return (
     <HomeContainer>
       {/* Both versions are always in the page; CSS media queries in StyleHome
-          show MobileWelcome at <=640px and HomeWrapper above that. */}
+          show MobileWelcome on phones (portrait, or landscape via
+          compactHome) and HomeWrapper otherwise. */}
       {!isAuth && (
         <MobileWelcome aria-label="Welcome">
           <h1>Welcome to Fox Body Swap Meet</h1>
