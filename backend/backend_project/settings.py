@@ -226,6 +226,14 @@ else:
 # Frontend base URL, used for links in emails.
 SITE_URL = os.environ.get("SITE_URL", "https://foxbodyswapmeet.com").rstrip("/")
 
+# Backend base URL, used for Django admin links in the signup digest.
+BACKEND_URL = os.environ.get(
+    "BACKEND_URL", "https://finalproject-production-bb8b.up.railway.app"
+).rstrip("/")
+
+# Who gets the weekly signup digest (send_signup_digest command).
+SIGNUP_DIGEST_TO = os.environ.get("SIGNUP_DIGEST_TO", "sam@foxbodyswapmeet.com")
+
 # Cloudflare Turnstile secret key, used server-side to verify the token the
 # frontend widget produces. backend/.env does not set this for local dev —
 # export Cloudflare's documented "always passes" test secret key instead
