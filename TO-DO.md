@@ -227,3 +227,18 @@
       already on main
 - [ ] Check landscape on a real iPhone (notch safe areas narrow the
       usable width)
+
+## Local backend/.env holds prod secrets (next, after the signup digest)
+
+- [ ] backend/.env has the prod DB password, prod AWS keys, and the prod
+      Resend key, and settings.py loads it, so any bare manage.py command
+      (runserver, migrate, shell, send_signup_digest) hits production unless
+      the dev.sh / CLAUDE.md overrides are exported. .env is gitignored, so
+      Railway never reads it; prod gets its values from Railway Variables.
+- [ ] Before changing anything: confirm every value is set in Railway
+      Variables, and save a copy of the prod secrets in a password manager
+- [ ] Rewrite backend/.env with local values: local DATABASE_URL, blank AWS
+      keys, a throwaway dev SECRET_KEY, no RESEND_API_KEY
+- [ ] Use `railway run <command>` for deliberate one-off prod commands
+- [ ] Update CLAUDE.md's "DO NOT hit the prod database" section and dev.sh
+      comments to match (overrides become a backstop, not the only guard)
