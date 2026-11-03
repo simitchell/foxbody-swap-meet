@@ -152,7 +152,18 @@ class RegisterView(APIView):
         # After commit, so we never email someone whose signup rolled back.
         # send_welcome_email swallows and logs its own errors.
         transaction.on_commit(lambda: send_welcome_email(user))
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        # Log the new user straight in: return the same tokens /token/ would,
+        # built by the same serializer so any custom claims stay identical.
+        refresh = CustomTokenObtainPairSerializer.get_token(user)
+        data = {
+            **serializer.data,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "userId": user.id,
+            "username": user.username,
+        }
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class ProfileViewSet(viewsets.ModelViewSet):

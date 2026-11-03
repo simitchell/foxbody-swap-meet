@@ -8,6 +8,7 @@ import {
 } from "../components/GlobalStyles/StyleUtility";
 import { Link, useSearchParams } from "react-router-dom";
 import Toast from "./Toast";
+import { startSession } from "../utils/session";
 
 const DEFAULT_AFTER_LOGIN = "/profile/";
 
@@ -85,11 +86,7 @@ export default function LoginForm() {
       showError("You have entered an invalid username or password.");
       return;
     }
-    localStorage.clear();
-    localStorage.setItem("username", username);
-    localStorage.setItem("userId", userId);
-    localStorage.setItem("access_token", access);
-    localStorage.setItem("refresh_token", refresh);
+    startSession({ access, refresh, userId, username });
     // Full page load, so AuthContext re-reads the new tokens from scratch.
     window.location.assign(safeNextPath(searchParams.get("next")));
   };

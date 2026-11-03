@@ -77,6 +77,10 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   token lives 30 minutes, refresh 10 days, with rotation + blacklist-after-rotation
   (each refresh issues a new 10-day refresh token, so it's an idle timeout). The
   short access lifetime relies on the frontend's automatic refresh (`apiFetch`).
+  `RegisterView` logs the new user in: its 201 response adds the same `access`,
+  `refresh`, `userId`, and `username` as `/token/`, built with
+  `CustomTokenObtainPairSerializer.get_token` (only after validation, Turnstile,
+  and save succeed).
 - Permissions: per-view. `ListingViewSet` uses `IsAuthenticatedOrReadOnly` +
   custom `IsOwnerOrReadOnly` (owner-only writes, public reads). There is **no**
   global `DEFAULT_PERMISSION_CLASSES` — every view sets its own, so check
@@ -108,7 +112,11 @@ Don't `git stash` while `runserver` is up: the auto-reloader can restart on the 
   hardcode the backend URL. `config.js` reads `VITE_API_BASE_URL` and falls back
   to the prod Railway URL.
 - Auth tokens are stored in `localStorage` (`access_token`, `refresh_token`,
-  `username`, `userId`), set on login in `LoginForm.jsx`. **`AuthContext` is the
+  `username`, `userId`), saved only by `utils/session.js#startSession`, which
+  both `LoginForm` and `RegisterForm` call before a full page load. After a
+  successful signup `RegisterForm` sets a one-shot `just_registered`
+  `sessionStorage` flag and loads `/profile/`, which reads and clears it to open
+  the edit form with a welcome toast. **`AuthContext` is the
   source of truth for UI auth state**: read `isAuth` / `username` / `logout` from
   `useAuth()` (the provider wraps everything in `routes/root.jsx`), never check
   `localStorage` for a token to decide if someone is signed in. On mount it

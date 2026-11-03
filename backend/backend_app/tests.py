@@ -456,3 +456,61 @@ class SignupDigestTests(TestCase):
         self.assertNotIn("<b>bold</b>", html)
         # Plain text isn't rendered as HTML, so it shows the name as typed.
         self.assertIn("<b>bold</b>", message.body)
+
+
+class RegistrationLoginTests(APITestCase):
+    """Registering logs the new user in: /register/ returns /token/'s tokens."""
+
+    url = "/register/"
+
+    def setUp(self):
+        # See RegistrationStateTests.setUp for why both are needed.
+        cache.clear()
+        patcher = mock.patch(
+            "backend_app.views.verify_turnstile_token",
+            return_value=True,
+        )
+        self.verify = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def register(self, **extra):
+        data = {"username": "newbie", "email": "n@example.com", "password": PASSWORD}
+        data.update(extra)
+        return self.client.post(self.url, data)
+
+    def test_response_includes_tokens_and_user_info(self):
+        response = self.register()
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user = User.objects.get(username="newbie")
+        self.assertEqual(response.data["userId"], user.id)
+        self.assertEqual(response.data["username"], "newbie")
+        self.assertTrue(response.data["access"])
+        self.assertTrue(response.data["refresh"])
+        self.assertNotIn("password", response.data)
+
+    def test_access_token_works_on_the_new_users_profile(self):
+        data = self.register().data
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {data['access']}")
+        response = self.client.get(f"/profile/{data['userId']}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_refresh_token_works(self):
+        data = self.register().data
+        response = self.client.post("/token/refresh/", {"refresh": data["refresh"]})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("access", response.data)
+
+    def test_failed_registrations_return_no_tokens(self):
+        make_user("taken")
+        cases = {
+            "username taken": ({"username": "taken"}, True),
+            "honeypot filled": ({"website": "http://spammy-example.com"}, True),
+            "turnstile failed": ({}, False),
+        }
+        for name, (extra, turnstile_ok) in cases.items():
+            with self.subTest(name):
+                self.verify.return_value = turnstile_ok
+                response = self.register(**extra)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertNotIn("access", response.data)
+                self.assertNotIn("refresh", response.data)

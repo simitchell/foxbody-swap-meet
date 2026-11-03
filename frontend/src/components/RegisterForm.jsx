@@ -4,12 +4,12 @@ import React from "react";
 import { Form, FormCard, FormContainer } from "./GlobalStyles/StyleUtility";
 // import { Button } from "./GlobalStyles/StyleUtility";
 import Button from "@mui/material/Button";
-import { Link, useRevalidator, Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import StateSelect from "./StateSelect";
+import { startSession } from "../utils/session";
 
 export default function RegisterForm() {
   const auth = localStorage.getItem("access_token");
-  const revalidator = useRevalidator();
   // const navigate = Navigate();
   const updateForm = useRef(null);
   const [errors, setErrors] = useState([]);
@@ -86,10 +86,21 @@ export default function RegisterForm() {
       return;
     }
 
-    updateForm.current.reset();
-    revalidator.revalidate;
-    alert("New user created successfully");
-    window.location.href = "/";
+    // /register/ returns the same tokens as /token/, so the new user is
+    // logged in right away. If they're missing (e.g. an older backend still
+    // deploying), fall back to the login page rather than saving a broken
+    // session.
+    const data = await response.json().catch(() => ({}));
+    if (!data.access || !data.refresh) {
+      window.location.assign("/login");
+      return;
+    }
+    startSession(data);
+    // The profile page reads this once to open in "finish your profile" mode.
+    // sessionStorage, because the full page load below wipes React state.
+    sessionStorage.setItem("just_registered", "1");
+    // Full page load, so AuthContext re-reads the new tokens (same as login).
+    window.location.assign("/profile/");
   };
 
   return (
@@ -98,9 +109,8 @@ export default function RegisterForm() {
         <Form onSubmit={(e) => handleSubmit(e)} ref={updateForm}>
           <h2>Register a new user</h2>
           <h3>
-            Once you're registered as a member of Fox Body Swap Meet, you'll be
-            redirected to our login page where you make your first login and get
-            started
+            Once your account is created, you&apos;ll be signed in right away
+            and taken to your profile to fill in the rest.
           </h3>
           <label>Username</label>
           <input type="text" name="username" />
