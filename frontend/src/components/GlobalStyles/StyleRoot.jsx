@@ -5,7 +5,9 @@ export const StyleRoot = styled.div`
   /* background-color: blue; */
   width: 500px;
   max-width: 80%;
-  margin: auto;
+  /* Horizontal only: this is a flex item in #root's column, where a vertical
+     auto margin would soak up leftover height and move the logo per page. */
+  margin: 0 auto;
   padding: 2rem;
   h2 {
     text-align: right;
