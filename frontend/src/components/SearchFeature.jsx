@@ -17,11 +17,13 @@ export default function Search() {
   const navigate = useNavigate();
 
   async function getSearch() {
-    const url = `${API_BASE_URL}/listing/?search=${params.search}`;
+    // The page has no pagination controls, so ask for as many as a page can hold.
+    const term = encodeURIComponent(params.search);
+    const url = `${API_BASE_URL}/listing/?q=${term}&page_size=100`;
     try {
       const response = await fetch(url);
       const result = await response.json();
-      setListingSearch(result);
+      setListingSearch(result.results);
       console.log(result);
       return result;
     } catch (error) {

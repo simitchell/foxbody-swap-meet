@@ -115,6 +115,26 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   `refresh`, `userId`, and `username` as `/token/`, built with
   `CustomTokenObtainPairSerializer.get_token` (only after validation, Turnstile,
   and save succeed).
+- `GET /listing/` is paginated and filtered, by `ListingPagination` and
+  `ListingFilter` (`filters.py`, using django-filter), on that view only. The
+  response is `{ count, next, previous, results }`; a page past the end is a 404,
+  and an invalid value is a 400 keyed by the parameter.
+
+  | Param | Meaning |
+  |---|---|
+  | `q` | Every word must appear in the title or description, any case |
+  | `min_price`, `max_price` | Inclusive, whole dollars |
+  | `condition`, `category` | Repeatable, matches any |
+  | `fits` | `four_eye` or `aero` also return `all`; `all` returns only `all`; Not set never matches |
+  | `state` | The seller's two-letter state, from their `Profile` |
+  | `user` | The seller's user id |
+  | `ordering` | `-listed` (default), `listed`, `price`, `-price` |
+  | `page`, `page_size` | 24 per page, `page_size` up to 100 |
+
+  `listed` is a public alias for `bumped_at`, so URLs never name the field. Never
+  add `created_at` to the orderings: sorting by it reveals owner-only dates. Every
+  ordering ends in `-id` so pages can't shuffle. Add new sorts to
+  `LISTING_ORDERINGS`.
 - Permissions: per-view. `ListingViewSet` uses `IsAuthenticatedOrReadOnly` +
   custom `IsOwnerOrReadOnly` (owner-only writes, public reads). There is **no**
   global `DEFAULT_PERMISSION_CLASSES` — every view sets its own, so check

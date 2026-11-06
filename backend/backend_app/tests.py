@@ -13,6 +13,7 @@ from django.core.management.base import CommandError
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -218,7 +219,7 @@ class SellerStateTests(APITestCase):
         for url in ("/listing/", f"/listing/{self.listing.id}/"):
             with self.subTest(url=url):
                 response = self.client.get(url)
-                body = response.data[0] if isinstance(response.data, list) else response.data
+                body = response.data["results"][0] if url == "/listing/" else response.data
                 self.assertEqual(body["seller_state"], "OH")
 
     def test_private_address_parts_are_not_exposed(self):
@@ -371,7 +372,7 @@ class ListingFieldsTests(APITestCase):
         for url in ("/listing/", self.url):
             with self.subTest(url=url):
                 response = self.client.get(url)
-                body = response.data[0] if isinstance(response.data, list) else response.data
+                body = response.data["results"][0] if url == "/listing/" else response.data
                 self.assertIn("created_at", body)
                 self.assertIn("bumped_at", body)
 
@@ -381,7 +382,7 @@ class ListingFieldsTests(APITestCase):
             for url in ("/listing/", self.url):
                 with self.subTest(user=user, url=url):
                     response = self.client.get(url)
-                    body = response.data[0] if isinstance(response.data, list) else response.data
+                    body = response.data["results"][0] if url == "/listing/" else response.data
                     self.assertNotIn("created_at", body)
                     self.assertNotIn("bumped_at", body)
 
@@ -900,6 +901,217 @@ class SeedDevDataTests(TestCase):
         for listing in Listing.objects.filter(user__in=self.seeded()):
             cap = max(seed_data.MAX_LISTING_PRICE, catalog_prices[listing.title])
             self.assertLessEqual(listing.price, cap)
+
+
+class ListingPaginationTests(APITestCase):
+    def make_listings(self, count, seller=None):
+        seller = seller or make_user("seller", state="SC")
+        for number in range(count):
+            Listing.objects.create(
+                user=seller, username=seller.username, title=str(number), price=number
+            )
+        return seller
+
+    def test_list_is_paginated_at_24_by_default(self):
+        self.make_listings(25)
+        response = self.client.get("/listing/")
+        self.assertEqual(set(response.data), {"count", "next", "previous", "results"})
+        self.assertEqual(response.data["count"], 25)
+        self.assertEqual(len(response.data["results"]), 24)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    def test_page_size_can_be_chosen_up_to_the_limit(self):
+        self.make_listings(101)
+        small = self.client.get("/listing/", {"page_size": 3})
+        self.assertEqual(len(small.data["results"]), 3)
+        huge = self.client.get("/listing/", {"page_size": 100000})
+        self.assertEqual(len(huge.data["results"]), 100)
+
+    def test_pages_cover_every_listing_once(self):
+        self.make_listings(5)
+        seen = []
+        for page in (1, 2, 3):
+            response = self.client.get("/listing/", {"page_size": 2, "page": page})
+            seen += [listing["id"] for listing in response.data["results"]]
+        self.assertEqual(len(seen), 5)
+        self.assertEqual(len(set(seen)), 5)
+
+    def test_listing_dates_tie_break_by_id(self):
+        seller = self.make_listings(3)
+        same_time = timezone.now()
+        Listing.objects.filter(user=seller).update(bumped_at=same_time)
+        ids = [listing["id"] for listing in self.client.get("/listing/").data["results"]]
+        self.assertEqual(ids, sorted(ids, reverse=True))
+
+    def test_detail_is_not_paginated(self):
+        seller = self.make_listings(1)
+        listing = Listing.objects.get(user=seller)
+        response = self.client.get(f"/listing/{listing.id}/")
+        self.assertEqual(response.data["id"], listing.id)
+        self.assertNotIn("results", response.data)
+
+    def test_other_endpoints_keep_their_shape(self):
+        user = make_user("buyer")
+        Cart.objects.create(user_id=user, cart_item="Hood", price=1)
+        self.client.force_authenticate(user)
+        response = self.client.get("/cart/")
+        self.assertIsInstance(response.data, list)
+
+    def test_query_count_does_not_grow_with_listings(self):
+        # An N+1 would add queries for every listing on the page.
+        self.make_listings(2)
+        with CaptureQueriesContext(connection) as few:
+            self.client.get("/listing/")
+        other = make_user("other", state="GA")
+        self.make_listings(20, seller=other)
+        with CaptureQueriesContext(connection) as many:
+            self.client.get("/listing/")
+        self.assertEqual(len(few), len(many))
+
+    def test_owner_dates_survive_pagination_for_their_listings_only(self):
+        mine = make_user("mine")
+        theirs = make_user("theirs")
+        self.make_listings(1, seller=mine)
+        self.make_listings(1, seller=theirs)
+        self.client.force_authenticate(mine)
+        results = self.client.get("/listing/").data["results"]
+        by_owner = {listing["username"]: listing for listing in results}
+        self.assertIn("created_at", by_owner["mine"])
+        self.assertNotIn("created_at", by_owner["theirs"])
+
+
+class ListingFilterTests(APITestCase):
+    def setUp(self):
+        self.sc_seller = make_user("sc_seller", state="SC")
+        self.ga_seller = make_user("ga_seller", state="GA")
+        self.hood = self.listing(
+            "Cobra R hood", 400, category="exterior", fits="aero", condition="new",
+            description="Fiberglass with pins",
+        )
+        self.bezels = self.listing(
+            "Headlight bezels", 60, category="exterior", fits="four_eye",
+            condition="fair", description="Faded paint",
+        )
+        self.t5 = self.listing(
+            "T-5 transmission", 850, category="drivetrain", fits="all",
+            condition="good", description="Shifts clean", seller=self.ga_seller,
+        )
+        self.not_set = self.listing(
+            "Mystery part", 25, condition="great", description="No idea",
+            seller=self.ga_seller,
+        )
+
+    def listing(self, title, price, seller=None, **fields):
+        seller = seller or self.sc_seller
+        return Listing.objects.create(
+            user=seller, username=seller.username, title=title, price=price, **fields
+        )
+
+    def ids(self, query):
+        response = self.client.get(f"/listing/?{query}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return [listing["id"] for listing in response.data["results"]]
+
+    def assert_finds(self, query, *listings):
+        self.assertCountEqual(self.ids(query), [listing.id for listing in listings])
+
+    def test_keyword_matches_title_and_description_in_any_case(self):
+        self.assert_finds("q=HOOD", self.hood)
+        self.assert_finds("q=shifts", self.t5)
+
+    def test_keyword_needs_every_word_in_any_order(self):
+        self.assert_finds("q=pins+hood", self.hood)
+        self.assert_finds("q=hood+shifts")
+
+    def test_price_range_is_inclusive(self):
+        self.assert_finds("min_price=400", self.hood, self.t5)
+        self.assert_finds("max_price=60", self.bezels, self.not_set)
+        self.assert_finds("min_price=60&max_price=400", self.hood, self.bezels)
+
+    def test_condition_is_repeatable(self):
+        self.assert_finds("condition=new", self.hood)
+        self.assert_finds("condition=new&condition=fair", self.hood, self.bezels)
+
+    def test_category_is_repeatable(self):
+        self.assert_finds("category=drivetrain", self.t5)
+        self.assert_finds(
+            "category=exterior&category=drivetrain", self.hood, self.bezels, self.t5
+        )
+
+    def test_fits_includes_parts_that_fit_every_fox_body(self):
+        self.assert_finds("fits=aero", self.hood, self.t5)
+        self.assert_finds("fits=four_eye", self.bezels, self.t5)
+
+    def test_fits_all_only_finds_all(self):
+        self.assert_finds("fits=all", self.t5)
+
+    def test_state_filters_by_the_sellers_profile(self):
+        self.assert_finds("state=SC", self.hood, self.bezels)
+        self.assert_finds("state=GA", self.t5, self.not_set)
+
+    def test_user_returns_only_that_sellers_listings(self):
+        self.assert_finds(f"user={self.ga_seller.id}", self.t5, self.not_set)
+
+    def test_filters_combine(self):
+        self.assert_finds("category=exterior&fits=aero&state=SC", self.hood)
+        self.assert_finds("category=exterior&fits=aero&state=GA")
+        self.assert_finds("q=t-5&fits=aero&max_price=900", self.t5)
+
+    def test_default_order_follows_bumped_at_not_age(self):
+        # An older listing with a later bumped_at comes first, which is what a
+        # future paid bump will do.
+        self.assertEqual(self.ids("")[0], self.not_set.id)
+        Listing.objects.filter(pk=self.hood.pk).update(
+            bumped_at=timezone.now() + timedelta(minutes=1)
+        )
+        self.assertEqual(self.ids("")[0], self.hood.id)
+        self.assertEqual(self.ids("ordering=-listed")[0], self.hood.id)
+        self.assertEqual(self.ids("ordering=listed")[-1], self.hood.id)
+
+    def test_ordering_by_price_both_ways(self):
+        by_price = [self.not_set.id, self.bezels.id, self.hood.id, self.t5.id]
+        self.assertEqual(self.ids("ordering=price"), by_price)
+        self.assertEqual(self.ids("ordering=-price"), by_price[::-1])
+
+    def test_equal_prices_tie_break_by_newest_id(self):
+        first = self.listing("Same A", 5)
+        second = self.listing("Same B", 5)
+        ids = self.ids("ordering=price")[:2]
+        self.assertEqual(ids, [second.id, first.id])
+
+    def test_listings_with_no_price_sort_last_both_ways(self):
+        no_price = self.listing("No price", None)
+        self.assertEqual(self.ids("ordering=price")[-1], no_price.id)
+        self.assertEqual(self.ids("ordering=-price")[-1], no_price.id)
+
+    def test_private_and_internal_orderings_are_rejected(self):
+        for field in ("created_at", "-created_at", "bumped_at", "username"):
+            with self.subTest(field=field):
+                response = self.client.get("/listing/", {"ordering": field})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("ordering", response.data)
+
+    def test_invalid_values_get_a_readable_400(self):
+        cases = {
+            "max_price": "abc",
+            "min_price": "1.5",
+            "category": "tires",
+            "condition": "used",
+            "fits": "mustang",
+            "state": "ZZ",
+            "user": "abc",
+        }
+        for param, value in cases.items():
+            with self.subTest(param=param):
+                response = self.client.get("/listing/", {param: value})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn(param, response.data)
+
+    def test_page_past_the_end_is_a_404(self):
+        # PR 3's /browse page relies on this to fall back to page 1.
+        response = self.client.get("/listing/", {"page": 99})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 
 class ListingFieldsMigrationTests(TransactionTestCase):
