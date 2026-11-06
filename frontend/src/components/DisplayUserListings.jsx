@@ -15,6 +15,7 @@ import {
 // the seller's own dashboard.
 export default function DisplayUserListings({ onCountChange, showListingAge }) {
   const [listingData, setListingData] = useState([]);
+  const [listingCount, setListingCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
 
@@ -22,9 +23,11 @@ export default function DisplayUserListings({ onCountChange, showListingAge }) {
     // console.log("here");
     try {
       // Signed in, because the API only sends dates to a listing's owner.
-      const response = await apiFetch("/listing/");
+      const userId = localStorage.getItem("userId");
+      const response = await apiFetch(`/listing/?user=${userId}&page_size=100`);
       const data = await response.json();
-      setListingData(data);
+      setListingData(data.results);
+      setListingCount(data.count);
     } catch (error) {
       console.log(error);
     } finally {
@@ -36,18 +39,11 @@ export default function DisplayUserListings({ onCountChange, showListingAge }) {
     getInfo();
   }, [location.pathname, location.state]);
 
-  // Filter listings created by user_id
-  const filteredListings = listingData.filter(
-    (listing) => listing.username === localStorage.getItem("username"),
-  );
-
   // Tell the page how many listings this user has, so Seller Tools can show
   // the count without fetching the listings a second time.
   useEffect(() => {
-    if (!isLoading) onCountChange?.(filteredListings.length);
-  }, [isLoading, filteredListings.length, onCountChange]);
-
-  // console.log(filteredListings);
+    if (!isLoading) onCountChange?.(listingCount);
+  }, [isLoading, listingCount, onCountChange]);
 
   return (
     <DisplayListingsContainer>
@@ -60,7 +56,7 @@ export default function DisplayUserListings({ onCountChange, showListingAge }) {
         </ProgressDiv>
       ) : (
         <CardContainer>
-          {filteredListings.map((listing) => (
+          {listingData.map((listing) => (
             <ListingCard
               key={listing.id}
               listing={listing}
@@ -75,7 +71,7 @@ export default function DisplayUserListings({ onCountChange, showListingAge }) {
       )}
       {isLoading
         ? null
-        : filteredListings.length === 0 && <NoDataDiv>No data found</NoDataDiv>}
+        : listingData.length === 0 && <NoDataDiv>No data found</NoDataDiv>}
     </DisplayListingsContainer>
   );
 }
