@@ -235,13 +235,176 @@ class SellerStateTests(APITestCase):
 
     def test_seller_state_is_read_only(self):
         self.client.force_authenticate(self.listing.user)
-        self.client.put(
+        response = self.client.put(
             f"/listing/{self.listing.id}/",
-            {"title": "GT40 intake", "price": 100, "seller_state": "CA"},
+            {
+                "title": "GT40 intake",
+                "price": 100,
+                "category": "engine",
+                "fits": "all",
+                "seller_state": "CA",
+            },
             format="multipart",
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.listing.user.profile.refresh_from_db()
         self.assertEqual(self.listing.user.profile.state, "OH")
+
+
+class ListingFieldsTests(APITestCase):
+    """Category and Fits are required to save, and dates are owner-only."""
+
+    def setUp(self):
+        self.seller = make_user("seller")
+        self.other = make_user("other")
+        # Created through the ORM, so blank here means "Not set", like a
+        # listing from before these fields existed.
+        self.not_set = Listing.objects.create(
+            user=self.seller,
+            username="seller",
+            title="K-member",
+            price=300,
+            description="Used",
+        )
+        self.url = f"/listing/{self.not_set.id}/"
+
+    def valid_data(self, **overrides):
+        return {
+            "title": "T-5",
+            "price": 500,
+            "description": "Rebuilt",
+            "condition": "good",
+            "category": "drivetrain",
+            "fits": "all",
+            **overrides,
+        }
+
+    def post(self, data):
+        self.client.force_authenticate(self.seller)
+        return self.client.post("/listing/", data, format="multipart")
+
+    def patch(self, data, user=None):
+        self.client.force_authenticate(user or self.seller)
+        return self.client.patch(self.url, data, format="multipart")
+
+    def test_create_requires_category_and_fits(self):
+        data = self.valid_data()
+        del data["category"], data["fits"]
+        response = self.post(data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["category"], ["Choose a category."])
+        self.assertEqual(response.data["fits"], ["Choose which cars it fits."])
+
+    def test_create_rejects_blank_values(self):
+        response = self.post(self.valid_data(category="", fits=""))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"category", "fits"})
+
+    def test_create_returns_values_and_labels(self):
+        response = self.post(
+            self.valid_data(category="suspension_brakes", fits="aero")
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["category"], "suspension_brakes")
+        self.assertEqual(response.data["category_label"], "Suspension & Brakes")
+        self.assertEqual(response.data["fits"], "aero")
+        self.assertEqual(response.data["fits_label"], "Aero ('87–'93)")
+
+    def test_invalid_choice_gets_a_readable_400(self):
+        response = self.post(self.valid_data(category="tires", fits="mustang"))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["category"], ["Choose a valid category."])
+        self.assertEqual(
+            response.data["fits"], ["Choose a valid option for which cars it fits."]
+        )
+
+    def test_patching_only_price_on_not_set_listing_is_rejected(self):
+        response = self.patch({"price": 250})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"category", "fits"})
+        self.not_set.refresh_from_db()
+        self.assertEqual(self.not_set.price, 300)
+
+    def test_patching_one_of_two_on_not_set_listing_is_rejected(self):
+        response = self.patch({"category": "engine"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"fits"})
+
+    def test_patching_both_on_not_set_listing_succeeds(self):
+        response = self.patch({"category": "suspension_brakes", "fits": "all"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.not_set.refresh_from_db()
+        self.assertEqual(self.not_set.category, "suspension_brakes")
+        self.assertEqual(self.not_set.fits, "all")
+
+    def test_patching_only_price_succeeds_once_both_are_set(self):
+        Listing.objects.filter(pk=self.not_set.pk).update(
+            category="engine", fits="aero"
+        )
+        response = self.patch({"price": 250})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_patch_cannot_blank_a_set_value(self):
+        Listing.objects.filter(pk=self.not_set.pk).update(
+            category="engine", fits="aero"
+        )
+        response = self.patch({"category": ""})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"category"})
+
+    def test_not_set_listing_stays_public_with_blank_labels(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["category"], "")
+        self.assertEqual(response.data["category_label"], "")
+        self.assertEqual(response.data["fits_label"], "")
+
+    def test_new_listing_starts_with_equal_dates(self):
+        response = self.post(self.valid_data())
+        listing = Listing.objects.get(pk=response.data["id"])
+        self.assertIsNotNone(listing.created_at)
+        self.assertEqual(listing.created_at, listing.bumped_at)
+
+    def test_owner_sees_dates(self):
+        self.client.force_authenticate(self.seller)
+        for url in ("/listing/", self.url):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                body = response.data[0] if isinstance(response.data, list) else response.data
+                self.assertIn("created_at", body)
+                self.assertIn("bumped_at", body)
+
+    def test_other_users_and_anonymous_do_not_see_dates(self):
+        for user in (self.other, None):
+            self.client.force_authenticate(user)
+            for url in ("/listing/", self.url):
+                with self.subTest(user=user, url=url):
+                    response = self.client.get(url)
+                    body = response.data[0] if isinstance(response.data, list) else response.data
+                    self.assertNotIn("created_at", body)
+                    self.assertNotIn("bumped_at", body)
+
+    def test_anonymous_does_not_see_dates_on_ownerless_listing(self):
+        listing = Listing.objects.create(user=None, title="Orphan", price=1)
+        response = self.client.get(f"/listing/{listing.id}/")
+        self.assertNotIn("created_at", response.data)
+
+    def test_sellers_cannot_write_dates(self):
+        Listing.objects.filter(pk=self.not_set.pk).update(
+            category="engine", fits="aero"
+        )
+        self.not_set.refresh_from_db()
+        created_at, bumped_at = self.not_set.created_at, self.not_set.bumped_at
+        response = self.patch(
+            {
+                "created_at": "2000-01-01T00:00:00Z",
+                "bumped_at": "2099-01-01T00:00:00Z",
+            }
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.not_set.refresh_from_db()
+        self.assertEqual(self.not_set.created_at, created_at)
+        self.assertEqual(self.not_set.bumped_at, bumped_at)
 
 
 class WelcomeEmailTests(APITestCase):
