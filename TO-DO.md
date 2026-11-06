@@ -359,3 +359,17 @@
       model fields are null=True, so the API may accept them empty; worth checking
 - [ ] Add PropTypes or turn off react/prop-types: new listing components add to the
       lint errors that chore/lint-cleanup is working through
+
+## Listings API pagination and filters (feature/listings-api-filters)
+
+- [x] /listing/ is paginated: 24 per page, page_size up to 100, listing view only
+- [x] Filters: q, min_price, max_price, condition, category, fits, state, user
+- [x] ordering: -listed (default), listed, price, -price, with -id as the tie-breaker.
+      This finishes the older "no default sort order" item
+- [x] Sorting by created_at is rejected, which closes a small leak of owner-only dates
+- [x] Your Listings asks for one seller instead of filtering in the browser
+- [ ] Homepage shows only the newest 100 until PR 4 (see TODO(PR 4))
+- [ ] Your Listings shows at most 100 for a seller with more; needs pagination
+      controls if anyone gets there
+- [ ] Listing detail URLs also run the filters, so /listing/5/?fits=aero can 404.
+      Nothing does this today
