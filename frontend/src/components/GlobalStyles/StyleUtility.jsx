@@ -127,6 +127,11 @@ export const EditForm = styled.form`
     }
   }
 
+  /* For short fields, like Price + Condition, that fit side by side on phones. */
+  .row2.keepOnPhone {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hint {
     font-size: 13px;
     color: #6b7280;

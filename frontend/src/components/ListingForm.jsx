@@ -2,20 +2,34 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 // import { Button } from "../components/GlobalStyles/StyleUtility";
 import Button from "@mui/material/Button";
-import { Form } from "../components/GlobalStyles/StyleUtility";
+import { EditForm } from "../components/GlobalStyles/StyleUtility";
 import { CreateListingContainer } from "./GlobalStyles/StyleCreateListing";
+import CategoryField from "./CategoryField";
+import FitsField from "./FitsField";
 import Toast from "./Toast";
 import apiErrorMessage from "../utils/apiErrorMessage";
 import apiFetch from "../utils/apiFetch";
+import {
+  focusFirstChoiceError,
+  listingChoiceErrors,
+} from "../utils/listingChoices";
 
 export default function ListingForm() {
   const navigate = useNavigate();
   const updateForm = useRef(null);
   const [toast, setToast] = useState({ open: false, message: "" });
+  const [choiceErrors, setChoiceErrors] = useState({});
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(updateForm.current);
+
+    const errors = listingChoiceErrors(formData);
+    setChoiceErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      focusFirstChoiceError(updateForm.current, errors);
+      return;
+    }
 
     try {
       const data = await apiFetch("/listing/", {
@@ -60,27 +74,52 @@ export default function ListingForm() {
           </ul>
         </div>
         <div className="createListingForm">
-          <h2>Create a listing</h2>
-          <Form onSubmit={(e) => handleSubmit(e)} ref={updateForm}>
-            <label>Listing Title</label>
-            <input type="text" name="title" />
-            <label>Price</label>
-            <input type="number" name="price" />
-            <label>Description</label>
-            <textarea type="text" name="description" maxLength="250" />
-            <label>Condition</label>
-            <select name="condition" defaultValue="good">
-              <option value="new">New</option>
-              <option value="great">Great</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-            </select>
-            <label>Upload Image</label>
-            <input
-              type="file"
-              name="image_url"
-              accept="image/jpeg, image/png, image/gif"
+          <EditForm onSubmit={(e) => handleSubmit(e)} ref={updateForm}>
+            <h2>Create a listing</h2>
+            <label className="field">
+              Listing title
+              <input type="text" name="title" />
+            </label>
+            <CategoryField
+              error={choiceErrors.category}
+              onChange={() =>
+                setChoiceErrors((errors) => ({ ...errors, category: undefined }))
+              }
             />
+            <FitsField
+              error={choiceErrors.fits}
+              onChange={() =>
+                setChoiceErrors((errors) => ({ ...errors, fits: undefined }))
+              }
+            />
+            <div className="row2 keepOnPhone">
+              <label className="field">
+                Price
+                <input type="number" name="price" />
+              </label>
+              <label className="field">
+                Condition
+                <select name="condition" defaultValue="good">
+                  <option value="new">New</option>
+                  <option value="great">Great</option>
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                </select>
+              </label>
+            </div>
+            <label className="field">
+              Description
+              <textarea name="description" maxLength="250" />
+            </label>
+            <small className="hint">Up to 250 characters.</small>
+            <label className="field">
+              Upload image
+              <input
+                type="file"
+                name="image_url"
+                accept="image/jpeg, image/png, image/gif"
+              />
+            </label>
             <input
               type="hidden"
               name="user"
@@ -91,11 +130,12 @@ export default function ListingForm() {
               name="username"
               value={localStorage.getItem("username")}
             />
-            <Button variant="contained" type="submit">
-              Post Listing
-            </Button>
-
-          </Form>
+            <div className="actions">
+              <Button variant="contained" type="submit">
+                Post Listing
+              </Button>
+            </div>
+          </EditForm>
         </div>
       </div>
       <Toast

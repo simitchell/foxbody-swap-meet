@@ -1,10 +1,17 @@
 import { useRef, useState } from "react";
 import Button from "@mui/material/Button";
 import { EditForm } from "./GlobalStyles/StyleUtility";
+import { InfoNote } from "./GlobalStyles/StyleListingFields";
 import { ReplacePhotoLabel } from "./GlobalStyles/StyleListingDetail";
+import CategoryField from "./CategoryField";
+import FitsField from "./FitsField";
 import Toast from "./Toast";
 import apiErrorMessage from "../utils/apiErrorMessage";
 import apiFetch from "../utils/apiFetch";
+import {
+  focusFirstChoiceError,
+  listingChoiceErrors,
+} from "../utils/listingChoices";
 
 // The photo input lives in the left column, outside the <form>. Its form
 // attribute points at this id, so the browser still treats it as one of the
@@ -20,10 +27,20 @@ export default function EditListing({ listing, onSaved, onCancel }) {
     message: "",
     severity: "error",
   });
+  const [choiceErrors, setChoiceErrors] = useState({});
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(updateForm.current);
+
+    // Checked before "No changes to save", so an older listing with nothing
+    // set explains what it needs.
+    const errors = listingChoiceErrors(formData);
+    setChoiceErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      focusFirstChoiceError(updateForm.current, errors);
+      return;
+    }
 
     // Send only the fields the user changed, like ProfileForm. PATCH updates
     // just those fields; PUT would replace the whole listing, so anything
@@ -79,11 +96,31 @@ export default function EditListing({ listing, onSaved, onCancel }) {
         ref={updateForm}
       >
         <h2>Edit listing</h2>
+        {(!listing.category || !listing.fits) && (
+          <InfoNote role="note">
+            Add a category and fit so buyers can find this in Browse. Both are
+            needed to save.
+          </InfoNote>
+        )}
         <label className="field">
           Listing title
           <input type="text" name="title" defaultValue={listing.title ?? ""} />
         </label>
-        <div className="row2">
+        <CategoryField
+          defaultValue={listing.category}
+          error={choiceErrors.category}
+          onChange={() =>
+            setChoiceErrors((errors) => ({ ...errors, category: undefined }))
+          }
+        />
+        <FitsField
+          defaultValue={listing.fits}
+          error={choiceErrors.fits}
+          onChange={() =>
+            setChoiceErrors((errors) => ({ ...errors, fits: undefined }))
+          }
+        />
+        <div className="row2 keepOnPhone">
           <label className="field">
             Price
             <input
