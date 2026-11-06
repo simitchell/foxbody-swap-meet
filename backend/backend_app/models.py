@@ -2,11 +2,13 @@ import uuid
 from datetime import date
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
+from django.db.models.functions import Lower
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.utils.text import slugify
 
 
 # lets us explicitly set upload path and filename
@@ -62,6 +64,46 @@ class Cart(models.Model):
         return self.cart_item
 
 
+class Brand(models.Model):
+    name = models.CharField(max_length=60)
+    # What goes in shareable URLs, like ?brand=trick-flow. Built from the name
+    # on save if left blank.
+    slug = models.SlugField(max_length=70, unique=True, blank=True)
+    # False until an admin approves a seller's suggestion. Pending brands show on
+    # their own listing but not in the brand list or the Browse filter.
+    is_approved = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            # In the database, not just the form, so "Saleen" and "saleen" can't
+            # both exist however a row gets created.
+            models.UniqueConstraint(Lower("name"), name="unique_brand_name_ci"),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self.unique_slug()
+        super().save(*args, **kwargs)
+
+    def unique_slug(self):
+        # A name of only symbols slugifies to nothing, so fall back to "brand".
+        base = slugify(self.name) or "brand"
+        slug = base
+        number = 2
+        while Brand.objects.filter(slug=slug).exists():
+            slug = f"{base}-{number}"
+            number += 1
+        return slug
+
+
 class Listing(models.Model):
     username = models.CharField(null=True)
     user = models.ForeignKey(
@@ -83,6 +125,15 @@ class Listing(models.Model):
     )
     fits = models.CharField(
         max_length=10, choices=Fits.choices, blank=True, default=""
+    )
+    # Optional: plenty of used parts are unbranded or unknown. PROTECT blocks
+    # deleting a brand that listings still use, instead of silently clearing it.
+    brand = models.ForeignKey(
+        Brand,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="listings",
     )
     # When the listing was first posted. Never changes. Null means it was posted
     # before we recorded dates.
