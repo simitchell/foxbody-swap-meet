@@ -10,7 +10,10 @@ const DEBOUNCE_MS = 300;
 
 // Debounced: it waits until typing pauses, so "hood" is one search rather than
 // four, one per letter.
-export function KeywordField({ id, value, onChange }) {
+//
+// live: the phone panel only edits a draft, so it updates on every keystroke.
+// Otherwise tapping "Show results" within the wait could lose the last word.
+export function KeywordField({ id, value, onChange, live = false }) {
   const [text, setText] = useState(value);
   const lastSent = useRef(value);
   // The timer calls the newest onChange. An older one holds older URL params, so
@@ -45,19 +48,25 @@ export function KeywordField({ id, value, onChange }) {
         type="search"
         placeholder="Title or description"
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (live) {
+            lastSent.current = e.target.value.trim();
+            onChange(e.target.value.trim());
+          }
+        }}
       />
     </div>
   );
 }
 
-export function BrandFilter({ id, brands, selected, onChange }) {
+export function BrandFilter({ id, brands, selected, onChange, large = false }) {
   const value = brands.filter((brand) => selected.includes(brand.slug));
 
   return (
     <div className="filterField">
       <label htmlFor={id}>Brand</label>
-      <BrowseBrandInput>
+      <BrowseBrandInput $large={large}>
         <Autocomplete
           id={id}
           multiple
@@ -68,6 +77,8 @@ export function BrandFilter({ id, brands, selected, onChange }) {
           isOptionEqualToValue={(option, chosen) => option.slug === chosen.slug}
           getOptionLabel={(option) => option.name}
           noOptionsText="No brands found"
+          // MUI's default would sit behind the phone Filters panel and the nav.
+          slotProps={{ popper: { sx: { zIndex: 10001 } } }}
           onChange={(_event, chosen) =>
             onChange(chosen.map((brand) => brand.slug))
           }
@@ -92,7 +103,9 @@ export function BrandFilter({ id, brands, selected, onChange }) {
 }
 
 // Only applies on blur or Enter, so typing "500" doesn't search for 5, then 50.
-function PriceInput({ id, label, placeholder, value, onCommit }) {
+// live: the phone panel edits a draft instead, and a tap on a button doesn't
+// reliably blur an input on iOS, so it updates on every keystroke.
+function PriceInput({ id, label, placeholder, value, onCommit, live }) {
   const [text, setText] = useState(value);
 
   useEffect(() => setText(value), [value]);
@@ -113,7 +126,11 @@ function PriceInput({ id, label, placeholder, value, onCommit }) {
         placeholder={placeholder}
         value={text}
         // Prices are whole dollars, and the API rejects anything else.
-        onChange={(e) => setText(e.target.value.replace(/\D/g, ""))}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/\D/g, "");
+          setText(digits);
+          if (live) onCommit(digits);
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") commit();
@@ -123,7 +140,7 @@ function PriceInput({ id, label, placeholder, value, onCommit }) {
   );
 }
 
-export function PriceFields({ idPrefix, minPrice, maxPrice, onChange }) {
+export function PriceFields({ idPrefix, minPrice, maxPrice, onChange, live = false }) {
   return (
     <fieldset className="filterGroup">
       <legend>Price</legend>
@@ -132,6 +149,7 @@ export function PriceFields({ idPrefix, minPrice, maxPrice, onChange }) {
           id={`${idPrefix}-min-price`}
           label="Minimum price"
           placeholder="$ Min"
+          live={live}
           value={minPrice}
           onCommit={(value) => onChange({ min_price: value })}
         />
@@ -140,6 +158,7 @@ export function PriceFields({ idPrefix, minPrice, maxPrice, onChange }) {
           id={`${idPrefix}-max-price`}
           label="Maximum price"
           placeholder="$ Max"
+          live={live}
           value={maxPrice}
           onCommit={(value) => onChange({ max_price: value })}
         />

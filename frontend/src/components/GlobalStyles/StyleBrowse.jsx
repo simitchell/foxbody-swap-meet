@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { navMenu } from "./breakpoints";
 import { CardContainer } from "./StyleCard";
 
@@ -18,22 +18,8 @@ export const BrowseLayout = styled.div`
   gap: 32px;
 `;
 
-// Each field is shared with the phone Filters panel, so the classes live here.
-export const FilterPanel = styled.aside`
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  display: flex;
-  flex: 0 0 260px;
-  flex-direction: column;
-  font-size: 14px;
-  gap: 22px;
-  padding: 20px;
-
-  @media ${navMenu} {
-    display: none;
-  }
-
+// Each field is shared with the phone Filters panel.
+const filterFields = css`
   .filterField {
     display: flex;
     flex-direction: column;
@@ -104,6 +90,24 @@ export const FilterPanel = styled.aside`
   }
 `;
 
+export const FilterPanel = styled.aside`
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  display: flex;
+  flex: 0 0 260px;
+  flex-direction: column;
+  font-size: 14px;
+  gap: 22px;
+  padding: 20px;
+
+  @media ${navMenu} {
+    display: none;
+  }
+
+  ${filterFields}
+`;
+
 // MUI's input. The && rules undo the panel's input styles, which would otherwise
 // draw a second border inside MUI's.
 export const BrowseBrandInput = styled.div`
@@ -111,8 +115,9 @@ export const BrowseBrandInput = styled.div`
     background: #fff;
     border-radius: 6px;
     font-family: inherit;
-    font-size: 14px;
-    min-height: 38px;
+    /* 16px stops iOS Safari zooming in when the input is focused. */
+    font-size: ${({ $large }) => ($large ? "16px" : "14px")};
+    min-height: ${({ $large }) => ($large ? "44px" : "38px")};
     padding-bottom: 3px;
     padding-top: 3px;
   }
@@ -121,7 +126,7 @@ export const BrowseBrandInput = styled.div`
     border-color: #d1d5db;
   }
 
-  && input {
+  &&& input {
     background: transparent;
     border: none;
     height: auto;
@@ -179,12 +184,179 @@ export const FilterTag = styled.button`
   white-space: nowrap;
 `;
 
+export const HeadingControls = styled.div`
+  flex: 0 0 auto;
+
+  @media ${navMenu} {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+`;
+
+export const FiltersButton = styled.div`
+  display: none;
+
+  @media ${navMenu} {
+    display: block;
+
+    button {
+      height: 44px;
+    }
+  }
+`;
+
+export const CompactCount = styled.p`
+  display: none;
+
+  @media ${navMenu} {
+    color: #4b5563;
+    display: block;
+    font-size: 14px;
+    margin: 12px 0 0;
+    padding: 0 16px;
+  }
+`;
+
+export const DrawerHeader = styled.div`
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: space-between;
+  padding: 8px 8px 8px 20px;
+
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  button {
+    align-items: center;
+    background: none;
+    border: none;
+    color: #374151;
+    display: flex;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+    width: 44px;
+  }
+`;
+
+export const DrawerBody = styled.div`
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  font-size: 15px;
+  gap: 22px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+
+  ${filterFields}
+
+  /* 16px stops iOS Safari zooming in when an input is focused. */
+  input[type="search"],
+  input[type="text"],
+  select {
+    font-size: 16px;
+    height: 44px;
+  }
+
+  .filterChoice {
+    min-height: 44px;
+  }
+
+  .fitToggle {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: hidden;
+  }
+
+  .fitToggle button {
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid #d1d5db;
+    color: #374151;
+    font-size: 14px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .fitToggle button:last-child {
+    border-right: none;
+  }
+
+  .fitToggle button[aria-pressed="true"] {
+    background: #1976d2;
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .categoryChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .categoryChips button {
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 400;
+    min-height: 44px;
+    padding: 0 14px;
+  }
+
+  .categoryChips button[aria-pressed="true"] {
+    background: #e8f1fb;
+    border-color: #1976d2;
+    color: #0d47a1;
+    font-weight: 500;
+  }
+`;
+
+export const DrawerFooter = styled.div`
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  /* Clears the home indicator on phones that have one. */
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+
+  button {
+    height: 48px;
+  }
+`;
+
 export const SortField = styled.div`
   align-items: center;
   display: flex;
   flex: 0 0 auto;
   font-size: 14px;
   gap: 8px;
+
+  @media ${navMenu} {
+    label {
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+      width: 1px;
+    }
+
+    && select {
+      height: 44px;
+      width: 100%;
+    }
+  }
 
   label {
     color: #4b5563;
@@ -253,13 +425,12 @@ export const BrowseHeading = styled.div`
     margin: 4px 0 0;
   }
 
-  .compactCount {
-    display: none;
-  }
-
   @media ${navMenu} {
-    padding: 0 16px;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
     margin-bottom: 0;
+    padding: 0 16px;
 
     h1 {
       font-size: 22px;
@@ -267,10 +438,6 @@ export const BrowseHeading = styled.div`
 
     .wideCount {
       display: none;
-    }
-
-    .compactCount {
-      display: block;
     }
   }
 `;

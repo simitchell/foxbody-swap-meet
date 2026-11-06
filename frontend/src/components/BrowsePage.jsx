@@ -12,6 +12,7 @@ import {
   withoutFilters,
 } from "../utils/browseFilters";
 import BrowseActiveTags from "./BrowseActiveTags";
+import BrowseFiltersDrawer from "./BrowseFiltersDrawer";
 import BrowsePagination from "./BrowsePagination";
 import BrowseSidebar from "./BrowseSidebar";
 import ListingCard from "./ListingCard";
@@ -24,6 +25,9 @@ import {
   BrowseHeading,
   BrowseLayout,
   BrowseResults,
+  FiltersButton,
+  HeadingControls,
+  CompactCount,
   SortField,
 } from "./GlobalStyles/StyleBrowse";
 
@@ -40,6 +44,7 @@ export default function BrowsePage() {
   const [brands, setBrands] = useState([]);
   const [brandsStatus, setBrandsStatus] = useState("loading");
   const [toast, setToast] = useState({ open: false, message: "" });
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const resultsTop = useRef(null);
 
   const query = searchParams.toString();
@@ -136,6 +141,11 @@ export default function BrowsePage() {
 
   const applyChanges = (changes) => setSearchParams(withChanges(searchParams, changes));
   const clearFilters = () => setSearchParams(withoutFilters(searchParams));
+  const applyDraft = (draft) => {
+    setDrawerOpen(false);
+    // Skips adding a back-button step when nothing changed.
+    if (draft.toString() !== query) setSearchParams(draft);
+  };
 
   const count = results?.count ?? 0;
   const pageCount = Math.ceil(count / PAGE_SIZE);
@@ -159,32 +169,54 @@ export default function BrowsePage() {
             <div>
               <h1>Browse Parts</h1>
               {results && count > 0 && (
-                <>
-                  <p className="wideCount">
-                    Showing {firstShown}–{lastShown} of {count}{" "}
-                    {count === 1 ? "result" : "results"}
-                  </p>
-                  <p className="compactCount">
-                    {count} {count === 1 ? "result" : "results"}
-                    {pageCount > 1 && ` · page ${page} of ${pageCount}`}
-                  </p>
-                </>
+                <p className="wideCount">
+                  Showing {firstShown}–{lastShown} of {count}{" "}
+                  {count === 1 ? "result" : "results"}
+                </p>
               )}
             </div>
-            <SortField>
-              <label htmlFor="browse-sort">Sort</label>
-              <select
-                id="browse-sort"
-                value={filters.ordering}
-                onChange={(e) => applyChanges({ ordering: e.target.value })}
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </SortField>
+            <HeadingControls>
+              <FiltersButton>
+                <Button
+                  variant="outlined"
+                  type="button"
+                  fullWidth
+                  onClick={() => setDrawerOpen(true)}
+                  startIcon={
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="4" y1="6" x2="20" y2="6" />
+                      <line x1="7" y1="12" x2="17" y2="12" />
+                      <line x1="10" y1="18" x2="14" y2="18" />
+                    </svg>
+                  }
+                >
+                  Filters{tags.length > 0 && ` (${tags.length})`}
+                </Button>
+              </FiltersButton>
+              <SortField>
+                <label htmlFor="browse-sort">Sort</label>
+                <select
+                  id="browse-sort"
+                  value={filters.ordering}
+                  onChange={(e) => applyChanges({ ordering: e.target.value })}
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </SortField>
+            </HeadingControls>
           </BrowseHeading>
 
           <BrowseActiveTags
@@ -192,6 +224,13 @@ export default function BrowsePage() {
             onRemove={applyChanges}
             onClear={clearFilters}
           />
+
+          {results && count > 0 && (
+            <CompactCount>
+              {count} {count === 1 ? "result" : "results"}
+              {pageCount > 1 && ` · page ${page} of ${pageCount}`}
+            </CompactCount>
+          )}
 
           {!results && isLoading && (
             <ProgressDiv>
@@ -231,6 +270,14 @@ export default function BrowsePage() {
           )}
         </BrowseResults>
       </BrowseLayout>
+      <BrowseFiltersDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        params={searchParams}
+        brands={brands}
+        currentCount={count}
+        onApply={applyDraft}
+      />
       <Toast
         open={toast.open}
         message={toast.message}
