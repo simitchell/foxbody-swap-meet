@@ -105,6 +105,27 @@ MANY_LISTINGS_RANGE = (8, 10)
 FEW_LISTINGS_RANGE = (1, 4)
 MAX_LISTING_PRICE = 4500
 
+# About 5% of listings have neither Category nor Fits, and about 5% have no
+# created_at, like real listings from before those fields existed.
+NOT_SET_SHARE = 0.05
+NO_DATE_SHARE = 0.05
+
+# Listings with a later bumped_at than created_at, as a past paid bump would
+# leave them, and how recent those bumps are.
+BUMPED_LISTINGS = 3
+BUMPED_WITHIN_DAYS = 7
+BUMPED_MIN_AGE_DAYS = 14
+
+# Days since posting for the demo user's listings, so one login shows every
+# state. None is a listing with no date, which is also left Not set. 60 is the
+# first stale age.
+DEMO_LISTING_AGES = (None, 0, 20, 59, 60, 200)
+DEMO_NO_DATE_BUMP_AGE_DAYS = 30
+
+# A long price needs the longest condition to test the phone card's wrap.
+LONG_PRICE_FROM = 10000
+LONG_PRICE_CONDITION = "great"
+
 # Placeholder image background for each category: muted, so white text reads.
 CATEGORY_COLORS = {
     "Engine": (122, 62, 56),
@@ -113,6 +134,7 @@ CATEGORY_COLORS = {
     "Body": (112, 88, 54),
     "Interior": (88, 72, 108),
     "Wheels": (84, 88, 92),
+    "Other": (70, 96, 104),
 }
 
 # (category, image label, title, whole-dollar price, description). Price is an
@@ -140,6 +162,8 @@ LISTINGS = [
      "Good paint. One small scuff."),
     ("Engine", "Oil Pan", "Canton 7qt road race oil pan", 285,
      "Baffled pan that stayed dry through two seasons of track days."),
+    ("Drivetrain", "Cobra Swap", "Complete '93 Cobra engine and T-5 swap, 38k miles", 12500,
+     "Everything from a wrecked '93 Cobra: engine, T-5, wiring, computer, and accessories. Ran perfectly before the wreck, and compression numbers are in the photos."),
     ("Drivetrain", "T-5 Package", "World Class T-5 with new clutch, flywheel, and aluminum bellhousing package", 4500,
      "Everything for a complete swap: rebuilt T-5, new clutch, flywheel, bellhousing, driveshaft, crossmember, pedal assembly, and shifter. Bench tested after the rebuild and stored on a pallet. Serious buyers only, please. Local pickup in person is ideal."),
     ("Drivetrain", "T-5", "T-5 transmission, 3.35 first gear", 850,
@@ -174,6 +198,10 @@ LISTINGS = [
      "Clean with no sag. Includes the original rubber isolators."),
     ("Suspension", "Bump Steer", "Bump steer kit", 75,
      "Used for about 5,000 miles. Good threads."),
+    ("Body", "Rolling Shell", "Rust-free '90 LX hatch rolling shell with clean title", 11750,
+     "Georgia car its whole life. No rust in the floors or strut towers. Comes on steel wheels with no engine or transmission. Fresh paint in the original color."),
+    ("Body", "Bezels", "Four-eye headlight bezels, pair", 65,
+     "Both tabs intact on each side. Paint is faded but there are no cracks."),
     ("Body", "Cobra R Hood", "Cobra R style fiberglass hood", 420,
      "Needs prep and paint. Fits well. Includes pins but no latch. Stored indoors."),
     ("Body", "Ground Effects", "GT ground effects, complete set, for '87-'93 GT hatch or coupe with all clips and original hardware", 575,
@@ -232,4 +260,75 @@ LISTINGS = [
      "Decent finish, no broken tabs."),
     ("Wheels", "Spare", "Factory space-saver spare", 35,
      "Never on the ground. Rubber is old, so treat it as display only."),
+    ("Other", "Shop Manuals", "Ford factory shop manual set, '79-'93", 60,
+     "Greasy thumbprints on the engine chapter, otherwise complete."),
+    ("Other", "Car Cover", "Fitted outdoor car cover for hatch", 45,
+     "Used for two winters. Elastic is still good. No tears."),
 ]
+
+# Each part's (category, fits), by image label. These are the values stored on
+# Listing, so they must match Category and Fits in models.py.
+LISTING_DETAILS = {
+    "GT40 Heads": ("engine", "all"),
+    "E303 Cam": ("engine", "all"),
+    "65mm TB": ("engine", "all"),
+    "24lb Injectors": ("engine", "all"),
+    "Mass Air": ("engine", "aero"),
+    "Headers": ("engine", "all"),
+    "Intake": ("engine", "all"),
+    "Radiator": ("engine", "all"),
+    "Long Block": ("engine", "aero"),
+    "Valve Covers": ("engine", "all"),
+    "Oil Pan": ("engine", "all"),
+    "Cobra Swap": ("drivetrain", "aero"),
+    "T-5 Package": ("drivetrain", "all"),
+    "T-5": ("drivetrain", "all"),
+    "8.8 Rear": ("drivetrain", "all"),
+    "Full Rear End": ("drivetrain", "all"),
+    "Pro 5.0": ("drivetrain", "all"),
+    "Driveshaft": ("drivetrain", "all"),
+    "Clutch Cable": ("drivetrain", "all"),
+    "Gears": ("drivetrain", "all"),
+    "K-Member": ("suspension_brakes", "all"),
+    "Connectors": ("suspension_brakes", "all"),
+    "Bilsteins": ("suspension_brakes", "all"),
+    "Coilovers": ("suspension_brakes", "all"),
+    "Control Arms": ("suspension_brakes", "all"),
+    "Sway Bar": ("suspension_brakes", "aero"),
+    "Caster Plates": ("suspension_brakes", "all"),
+    "Lowering Springs": ("suspension_brakes", "all"),
+    "Bump Steer": ("suspension_brakes", "all"),
+    "Rolling Shell": ("exterior", "aero"),
+    "Bezels": ("exterior", "four_eye"),
+    "Cobra R Hood": ("exterior", "aero"),
+    "Ground Effects": ("exterior", "aero"),
+    "Saleen Wing": ("exterior", "aero"),
+    "LX Taillights": ("exterior", "aero"),
+    "Hood": ("exterior", "four_eye"),
+    "Trim Clip": ("interior", "all"),
+    "Fender": ("exterior", "aero"),
+    "Headlights": ("exterior", "aero"),
+    "Door": ("exterior", "all"),
+    "Louvers": ("exterior", "all"),
+    "Antenna": ("exterior", "all"),
+    "Recaro Seats": ("interior", "four_eye"),
+    "Gauge Cluster": ("interior", "aero"),
+    "Door Panels": ("interior", "aero"),
+    "Center Console": ("interior", "aero"),
+    "Steering Wheel": ("interior", "aero"),
+    "Dash Pad": ("interior", "aero"),
+    "Pillars": ("interior", "four_eye"),
+    "Pedals": ("interior", "all"),
+    "Roll Bar": ("interior", "all"),
+    "Knobs": ("interior", "four_eye"),
+    "Pony Wheels": ("wheels_tires", "aero"),
+    "Turbine Wheels": ("wheels_tires", "aero"),
+    "Bullitts": ("wheels_tires", "all"),
+    "Cobra R Wheels": ("wheels_tires", "aero"),
+    "Drag Packs": ("wheels_tires", "all"),
+    "Lug Nuts": ("wheels_tires", "all"),
+    "Center Caps": ("wheels_tires", "aero"),
+    "Spare": ("wheels_tires", "four_eye"),
+    "Shop Manuals": ("other", "all"),
+    "Car Cover": ("other", "aero"),
+}

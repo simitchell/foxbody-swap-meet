@@ -18,7 +18,7 @@ from rest_framework.test import APITestCase
 
 from . import seed_data
 from .management.commands.seed_dev_data import Command as SeedCommand
-from .models import Cart, Listing, Profile
+from .models import Cart, Category, Fits, Listing, Profile
 
 PASSWORD = "S3cure-testpass!"
 
@@ -844,3 +844,58 @@ class SeedDevDataTests(TestCase):
             self.assertLessEqual(len(title), cart_title_limit)
             self.assertLessEqual(len(description), 250)
             self.assertIsInstance(price, int)
+
+    def test_catalog_details_match_the_catalog_and_models(self):
+        labels = [part[1] for part in seed_data.LISTINGS]
+        self.assertEqual(len(labels), len(set(labels)))
+        self.assertEqual(set(labels), set(seed_data.LISTING_DETAILS))
+        for category, fits in seed_data.LISTING_DETAILS.values():
+            self.assertIn(category, Category.values)
+            self.assertIn(fits, Fits.values)
+
+    def test_listing_values_are_valid_or_not_set(self):
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__in=self.seeded())
+        self.assertTrue(listings.exclude(category="").exists())
+        self.assertTrue(listings.filter(category="", fits="").exists())
+        self.assertFalse(listings.filter(category="").exclude(fits="").exists())
+        for listing in listings.select_related("user"):
+            listing.full_clean()
+
+    def test_listing_dates_are_believable(self):
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__in=self.seeded()).select_related("user")
+        bumped = 0
+        for listing in listings.exclude(created_at=None):
+            self.assertGreaterEqual(listing.created_at, listing.user.date_joined)
+            self.assertLessEqual(listing.created_at, listing.bumped_at)
+            bumped += listing.bumped_at > listing.created_at
+        self.assertEqual(bumped, seed_data.BUMPED_LISTINGS)
+        self.assertTrue(listings.filter(created_at=None).exists())
+
+    def test_demo_user_shows_every_listing_state(self):
+        self.assertEqual(len(seed_data.DEMO_LISTING_AGES), seed_data.DEMO_LISTINGS)
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__username="seed_demo")
+        no_date = listings.get(created_at=None)
+        self.assertEqual((no_date.category, no_date.fits), ("", ""))
+        self.assertEqual(listings.filter(category="").count(), 1)
+        stale_before = timezone.now() - timedelta(days=60)
+        self.assertEqual(listings.filter(created_at__lte=stale_before).count(), 2)
+
+    def test_long_prices_get_the_longest_condition(self):
+        self.run_seed("--users", "25")
+        long_prices = Listing.objects.filter(
+            user__in=self.seeded(), price__gte=seed_data.LONG_PRICE_FROM
+        )
+        self.assertTrue(long_prices.exists())
+        self.assertFalse(
+            long_prices.exclude(condition=seed_data.LONG_PRICE_CONDITION).exists()
+        )
+
+    def test_ordinary_prices_stay_under_the_cap(self):
+        self.run_seed("--users", "25")
+        catalog_prices = {part[2]: part[3] for part in seed_data.LISTINGS}
+        for listing in Listing.objects.filter(user__in=self.seeded()):
+            cap = max(seed_data.MAX_LISTING_PRICE, catalog_prices[listing.title])
+            self.assertLessEqual(listing.price, cap)
