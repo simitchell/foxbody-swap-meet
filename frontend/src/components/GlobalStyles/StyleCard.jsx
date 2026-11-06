@@ -106,17 +106,11 @@ export const Card = styled.div`
     font-size: 12px;
     font-weight: 500;
     color: #374151;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    /* Narrower cards: two lines, or a long brand would hide the category. */
-    @media (max-width: 1023px) {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
-      white-space: normal;
-    }
+    /* Up to two lines, or a long brand would hide the category. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   /* Phones: cards are ~165px wide in the 2-column grid, so compact them. */
