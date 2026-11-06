@@ -18,9 +18,8 @@ import LogoutPage from "./components/LogOut";
 import Profile from "./routes/profile";
 import Register from "./routes/register";
 import Root from "./routes/root";
-import Search from "./components/SearchFeature";
+import SearchRedirect from "./routes/searchredirect";
 import Footer from "./components/Footer/Footer";
-import SearchFail from "./routes/searchfail";
 
 const router = createBrowserRouter([
   {
@@ -74,11 +73,11 @@ const router = createBrowserRouter([
       },
       {
         path: "search/",
-        element: <SearchFail />
+        element: <SearchRedirect />,
       },
       {
         path: "search/:search",
-        element: <Search />,
+        element: <SearchRedirect />,
       },
     ],
   },
