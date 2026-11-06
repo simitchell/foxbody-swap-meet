@@ -13,6 +13,7 @@ from django.core.management.base import CommandError
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -218,7 +219,7 @@ class SellerStateTests(APITestCase):
         for url in ("/listing/", f"/listing/{self.listing.id}/"):
             with self.subTest(url=url):
                 response = self.client.get(url)
-                body = response.data[0] if isinstance(response.data, list) else response.data
+                body = response.data["results"][0] if url == "/listing/" else response.data
                 self.assertEqual(body["seller_state"], "OH")
 
     def test_private_address_parts_are_not_exposed(self):
@@ -371,7 +372,7 @@ class ListingFieldsTests(APITestCase):
         for url in ("/listing/", self.url):
             with self.subTest(url=url):
                 response = self.client.get(url)
-                body = response.data[0] if isinstance(response.data, list) else response.data
+                body = response.data["results"][0] if url == "/listing/" else response.data
                 self.assertIn("created_at", body)
                 self.assertIn("bumped_at", body)
 
@@ -381,7 +382,7 @@ class ListingFieldsTests(APITestCase):
             for url in ("/listing/", self.url):
                 with self.subTest(user=user, url=url):
                     response = self.client.get(url)
-                    body = response.data[0] if isinstance(response.data, list) else response.data
+                    body = response.data["results"][0] if url == "/listing/" else response.data
                     self.assertNotIn("created_at", body)
                     self.assertNotIn("bumped_at", body)
 
@@ -900,6 +901,84 @@ class SeedDevDataTests(TestCase):
         for listing in Listing.objects.filter(user__in=self.seeded()):
             cap = max(seed_data.MAX_LISTING_PRICE, catalog_prices[listing.title])
             self.assertLessEqual(listing.price, cap)
+
+
+class ListingPaginationTests(APITestCase):
+    def make_listings(self, count, seller=None):
+        seller = seller or make_user("seller", state="SC")
+        for number in range(count):
+            Listing.objects.create(
+                user=seller, username=seller.username, title=str(number), price=number
+            )
+        return seller
+
+    def test_list_is_paginated_at_24_by_default(self):
+        self.make_listings(25)
+        response = self.client.get("/listing/")
+        self.assertEqual(set(response.data), {"count", "next", "previous", "results"})
+        self.assertEqual(response.data["count"], 25)
+        self.assertEqual(len(response.data["results"]), 24)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+
+    def test_page_size_can_be_chosen_up_to_the_limit(self):
+        self.make_listings(101)
+        small = self.client.get("/listing/", {"page_size": 3})
+        self.assertEqual(len(small.data["results"]), 3)
+        huge = self.client.get("/listing/", {"page_size": 100000})
+        self.assertEqual(len(huge.data["results"]), 100)
+
+    def test_pages_cover_every_listing_once(self):
+        self.make_listings(5)
+        seen = []
+        for page in (1, 2, 3):
+            response = self.client.get("/listing/", {"page_size": 2, "page": page})
+            seen += [listing["id"] for listing in response.data["results"]]
+        self.assertEqual(len(seen), 5)
+        self.assertEqual(len(set(seen)), 5)
+
+    def test_listing_dates_tie_break_by_id(self):
+        seller = self.make_listings(3)
+        same_time = timezone.now()
+        Listing.objects.filter(user=seller).update(bumped_at=same_time)
+        ids = [listing["id"] for listing in self.client.get("/listing/").data["results"]]
+        self.assertEqual(ids, sorted(ids, reverse=True))
+
+    def test_detail_is_not_paginated(self):
+        seller = self.make_listings(1)
+        listing = Listing.objects.get(user=seller)
+        response = self.client.get(f"/listing/{listing.id}/")
+        self.assertEqual(response.data["id"], listing.id)
+        self.assertNotIn("results", response.data)
+
+    def test_other_endpoints_keep_their_shape(self):
+        user = make_user("buyer")
+        Cart.objects.create(user_id=user, cart_item="Hood", price=1)
+        self.client.force_authenticate(user)
+        response = self.client.get("/cart/")
+        self.assertIsInstance(response.data, list)
+
+    def test_query_count_does_not_grow_with_listings(self):
+        # An N+1 would add queries for every listing on the page.
+        self.make_listings(2)
+        with CaptureQueriesContext(connection) as few:
+            self.client.get("/listing/")
+        other = make_user("other", state="GA")
+        self.make_listings(20, seller=other)
+        with CaptureQueriesContext(connection) as many:
+            self.client.get("/listing/")
+        self.assertEqual(len(few), len(many))
+
+    def test_owner_dates_survive_pagination_for_their_listings_only(self):
+        mine = make_user("mine")
+        theirs = make_user("theirs")
+        self.make_listings(1, seller=mine)
+        self.make_listings(1, seller=theirs)
+        self.client.force_authenticate(mine)
+        results = self.client.get("/listing/").data["results"]
+        by_owner = {listing["username"]: listing for listing in results}
+        self.assertIn("created_at", by_owner["mine"])
+        self.assertNotIn("created_at", by_owner["theirs"])
 
 
 class ListingFieldsMigrationTests(TransactionTestCase):
