@@ -23,6 +23,24 @@ CONDITION_CHOICES = [
 ]
 
 
+# The value on the left is what's stored; the label is only for display, so a
+# label can be reworded without touching any data. Blank means "Not set".
+class Category(models.TextChoices):
+    ENGINE = "engine", "Engine"
+    DRIVETRAIN = "drivetrain", "Drivetrain"
+    SUSPENSION_BRAKES = "suspension_brakes", "Suspension & Brakes"
+    EXTERIOR = "exterior", "Exterior"
+    INTERIOR = "interior", "Interior"
+    WHEELS_TIRES = "wheels_tires", "Wheels & Tires"
+    OTHER = "other", "Other"
+
+
+class Fits(models.TextChoices):
+    FOUR_EYE = "four_eye", "Four-eye ('79–'86)"
+    AERO = "aero", "Aero ('87–'93)"
+    ALL = "all", "All Fox Bodies ('79–'93)"
+
+
 # Create your models here.
 class Cart(models.Model):
     user_id = models.ForeignKey(
@@ -58,6 +76,12 @@ class Listing(models.Model):
         default="good",
         null=True,
         blank=True,
+    )
+    category = models.CharField(
+        max_length=20, choices=Category.choices, blank=True, default=""
+    )
+    fits = models.CharField(
+        max_length=10, choices=Fits.choices, blank=True, default=""
     )
 
     def __str__(self) -> str:
