@@ -16,9 +16,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import redirect
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.throttling import ScopedRateThrottle
 from .emails import send_welcome_email
+from .filters import ListingFilter
 from .models import Cart, Listing, Profile
 from .pagination import ListingPagination
 from .turnstile import verify_turnstile_token
@@ -111,8 +112,8 @@ class ListingViewSet(viewsets.ModelViewSet):
     serializer_class = ListingSerializer
     pagination_class = ListingPagination
     parser_classes = (MultiPartParser, FormParser)
-    search_fields = ["title"]
-    filter_backends = [SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ListingFilter
 
     def perform_create(self, serializer):
         image = self.request.FILES.get('image_url')
