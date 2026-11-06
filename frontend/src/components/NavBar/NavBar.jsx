@@ -10,32 +10,16 @@ import { useAuth } from "../../AuthContext";
 export default function MainNav() {
   const { isAuth, username } = useAuth();
   const [search, setSearch] = useState("");
-  const [lastSearch, setLastSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleChangeSearch = (e) => {
-    setSearch(e.target.value);
-    setLastSearch(e.target.value);
-  };
-
-  const handleSearchClick = (e) => {
-    if (search === "") {
-      navigate(`/search/${lastSearch}`);
-    } else {
-      navigate(`search/${search}`);
-      setSearch("");
-    }
-  };
-
-  const handleEnter = (e) => {
-    const code = e.keyCode || e.which;
-    if (code === 13) {
-      navigate(`/search/${search}`);
-      setSearch("");
-    } else {
-      navigate("/");
-    }
+  // Always a fresh search: this is the quick, broad tool, so it starts from
+  // everything rather than narrowing whatever filters happen to be on. The
+  // sidebar is there for narrowing.
+  const runSearch = () => {
+    const term = search.trim();
+    navigate(term ? `/browse?${new URLSearchParams({ q: term })}` : "/browse");
+    setSearch("");
   };
 
   return (
@@ -49,16 +33,16 @@ export default function MainNav() {
             type="search"
             placeholder="Search Listings"
             value={search}
-            onChange={handleChangeSearch}
-            onKeyDown={handleEnter}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") runSearch();
+            }}
           />
           <Button
             variant="contained"
             size="small"
             type="button"
-            onClick={(e) => {
-              handleSearchClick(e);
-            }}
+            onClick={runSearch}
           >
             Search
           </Button>
@@ -72,6 +56,9 @@ export default function MainNav() {
       </HamburgerButton>
       <NavRight $open={menuOpen}>
         <ul>
+          <li>
+            <Link to="/browse">Browse</Link>
+          </li>
           <li>
             <Link to="/aboutus">About Us</Link>
           </li>

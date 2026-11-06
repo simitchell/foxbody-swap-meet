@@ -7,6 +7,7 @@ import { RouterProvider, createBrowserRouter } from "react-router-dom";
 import "./index.css";
 
 import AboutUs from "./routes/aboutus";
+import Browse from "./routes/browse";
 import Cart from "./routes/cart";
 import DisplayListingDetail from "./routes/listingdetail";
 import HomePage from "./routes/home";
@@ -17,9 +18,8 @@ import LogoutPage from "./components/LogOut";
 import Profile from "./routes/profile";
 import Register from "./routes/register";
 import Root from "./routes/root";
-import Search from "./components/SearchFeature";
+import SearchRedirect from "./routes/searchredirect";
 import Footer from "./components/Footer/Footer";
-import SearchFail from "./routes/searchfail";
 
 const router = createBrowserRouter([
   {
@@ -34,6 +34,10 @@ const router = createBrowserRouter([
       {
         path: "aboutus/",
         element: <AboutUs />,
+      },
+      {
+        path: "browse/",
+        element: <Browse />,
       },
       {
         path: "cart/",
@@ -69,11 +73,11 @@ const router = createBrowserRouter([
       },
       {
         path: "search/",
-        element: <SearchFail />
+        element: <SearchRedirect />,
       },
       {
         path: "search/:search",
-        element: <Search />,
+        element: <SearchRedirect />,
       },
     ],
   },
