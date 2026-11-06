@@ -20,6 +20,7 @@ from backend_app.models import (
     FOX_BODY_FIRST_YEAR,
     Cart,
     Listing,
+    Profile,
     current_year,
 )
 
@@ -59,10 +60,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.check_local_only()
-        if options["flush"] or options["flush_only"]:
-            raise CommandError("--flush isn't built yet.")
         if options["users"] < 1:
             raise CommandError("--users must be at least 1.")
+
+        if options["flush_only"]:
+            with transaction.atomic():
+                old_files = self.flush()
+            self.delete_files(old_files)
+            return
 
         photos = self.find_photos(options["images_dir"])
         use_images = self.images_allowed()
@@ -71,9 +76,17 @@ class Command(BaseCommand):
         rng = random.Random(options["seed"])
         now = timezone.now()
         self.saved_files = []
+        old_files = []
         try:
-            # All or nothing: a failure partway through leaves no half-built data.
+            # All or nothing: a failure partway through leaves no half-built
+            # data, and a failed --flush re-seed leaves the old data in place.
             with transaction.atomic():
+                if options["flush"]:
+                    old_files = self.flush()
+                elif self.seeded_users().exists():
+                    raise CommandError(
+                        "Seed data already exists. Run with --flush to replace it."
+                    )
                 users, tiers = self.seed_users(
                     rng, options["users"], now, options["unstamped"]
                 )
@@ -81,9 +94,10 @@ class Command(BaseCommand):
                 cart_count = self.seed_carts(rng, users, listings)
         except Exception:
             # A rollback only undoes the database, not files already on disk.
-            for name in self.saved_files:
-                default_storage.delete(name)
+            self.delete_files(self.saved_files)
             raise
+        # Only now, since the rows pointing at these files are really gone.
+        self.delete_files(old_files)
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -116,6 +130,29 @@ class Command(BaseCommand):
                 "Set DEBUG=true (see backend/.env.example)."
             )
 
+    def seeded_users(self):
+        return User.objects.filter(email__endswith=f"@{seed_data.SEED_EMAIL_DOMAIN}")
+
+    def flush(self):
+        """Deletes seeded users and returns their image files to delete later."""
+        users = self.seeded_users()
+        listings = Listing.objects.filter(user__in=users)
+        self.stdout.write(
+            f"Flushing {users.count()} users, "
+            f"{Profile.objects.filter(user__in=users).count()} profiles, "
+            f"{listings.count()} listings, and "
+            f"{Cart.objects.filter(user_id__in=users).count()} cart items."
+        )
+        files = [listing.image_url.name for listing in listings if listing.image_url]
+        # Profiles, listings, and cart items all cascade from User. Files don't:
+        # deleting a row leaves its image on disk, so the caller removes them.
+        users.delete()
+        return files
+
+    def delete_files(self, names):
+        for name in names:
+            default_storage.delete(name)
+
     def seed_users(self, rng, count, now, unstamped):
         full = round(count * seed_data.FULL_PROFILE_SHARE)
         partial = round(count * seed_data.PARTIAL_PROFILE_SHARE)
@@ -133,6 +170,11 @@ class Command(BaseCommand):
         for i in range(len(usernames) - 1, others):
             base = seed_data.USERNAMES[i % len(seed_data.USERNAMES)]
             usernames.append(f"{base}_{i}")
+
+        taken = User.objects.filter(username__in=usernames)
+        if taken.exists():
+            names = ", ".join(taken.values_list("username", flat=True))
+            raise CommandError(f"These usernames are already taken: {names}")
 
         # Hashing is slow on purpose, so do it once and share the result.
         password = make_password(seed_data.SEED_PASSWORD)

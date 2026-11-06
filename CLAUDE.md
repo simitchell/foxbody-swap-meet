@@ -59,6 +59,29 @@ venv/bin/python manage.py runserver 8000
 Don't `git stash` while `runserver` is up: the auto-reloader can restart on the stashed
 (settings-less) files and leave the server in a broken state.
 
+### Seeding local data
+`manage.py seed_dev_data` fills the local DB with believable users, profiles,
+listings with placeholder images, and cart items. Run from `backend/`:
+```bash
+venv/bin/python manage.py seed_dev_data                     # 25 users, about 120 listings
+venv/bin/python manage.py seed_dev_data --flush             # delete seeded data, then re-seed
+venv/bin/python manage.py seed_dev_data --flush-only        # delete seeded data and stop
+venv/bin/python manage.py seed_dev_data --users 40 --seed 7
+venv/bin/python manage.py seed_dev_data --images-dir PATH   # use real photos as listing images
+venv/bin/python manage.py seed_dev_data --unstamped         # leave them unreported, to test the digest
+```
+- Every seeded user has the password `foxbody-dev-123`; `seed_demo` is the known login.
+- **It refuses to run** unless the database is `foxbody_local` on a local host with
+  `DEBUG` on, and it deliberately has no `--force`. Never run it against production.
+- Seeded users are found by email domain (`@seed.example.com`), so `--flush` can't
+  touch other accounts, including plain `@example.com` ones like `alice` and `bob`.
+- Profiles, listings, and cart items cascade from the user. `--flush` also deletes the
+  seeded listings' image files. One leftover: a cart item on a *non-seeded* account
+  copied from a seeded listing stays behind with a broken image.
+- It writes directly through the ORM, so it skips the welcome email and Rekognition.
+  If storage is S3 (an exported `AWS_ACCESS_KEY_ID`), it skips images entirely.
+- Data lives in `backend_app/seed_data.py`; the same `--seed` picks the same data.
+
 ## Architecture
 
 ### Backend
