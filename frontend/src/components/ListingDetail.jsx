@@ -15,6 +15,7 @@ import { ProgressDiv } from "./GlobalStyles/StyleUtility";
 import conditionColor from "../utils/conditionColor";
 import apiErrorMessage from "../utils/apiErrorMessage";
 import apiFetch from "../utils/apiFetch";
+import { formatPrice } from "../utils/formatPrice";
 import { formatListedValue, isStale } from "../utils/listingAge";
 import { ConditionDot } from "./GlobalStyles/StyleCard";
 import { InfoNote } from "./GlobalStyles/StyleListingFields";
@@ -220,7 +221,7 @@ export default function ListingDetail() {
                 </DetailTitleBlock>
 
                 <DetailPrice>
-                  <span>${listingDetail.price}</span>
+                  <span>{formatPrice(listingDetail.price)}</span>
                 </DetailPrice>
 
                 <DetailDescription>

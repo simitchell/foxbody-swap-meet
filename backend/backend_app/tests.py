@@ -11,7 +11,8 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
-from django.test import TestCase, override_settings
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -899,3 +900,37 @@ class SeedDevDataTests(TestCase):
         for listing in Listing.objects.filter(user__in=self.seeded()):
             cap = max(seed_data.MAX_LISTING_PRICE, catalog_prices[listing.title])
             self.assertLessEqual(listing.price, cap)
+
+
+class ListingFieldsMigrationTests(TransactionTestCase):
+    """Listings from before these fields existed, on their way through 0036."""
+
+    BEFORE = [("backend_app", "0034_profile_signup_digest_sent_at")]
+    AFTER = [("backend_app", "0036_listing_created_at_listing_bumped_at")]
+
+    def migrate(self, target):
+        MigrationExecutor(connection).migrate(target)
+        return MigrationExecutor(connection).loader.project_state(target).apps
+
+    def migrate_to_latest(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_existing_listings_stay_not_set_with_no_invented_date(self):
+        # Leave the schema current for whatever test runs next.
+        self.addCleanup(self.migrate_to_latest)
+        old_apps = self.migrate(self.BEFORE)
+        OldListing = old_apps.get_model("backend_app", "Listing")
+        ids = [OldListing.objects.create(title=str(n), price=n).id for n in range(3)]
+
+        new_apps = self.migrate(self.AFTER)
+        NewListing = new_apps.get_model("backend_app", "Listing")
+        listings = list(NewListing.objects.filter(id__in=ids).order_by("id"))
+
+        for listing in listings:
+            self.assertEqual(listing.category, "")
+            self.assertEqual(listing.fits, "")
+            self.assertIsNone(listing.created_at)
+        # Distinct and in id order, so sorting by Newest is stable.
+        bumped = [listing.bumped_at for listing in listings]
+        self.assertEqual(bumped, sorted(set(bumped)))

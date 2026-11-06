@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Card, PriceBadge, ConditionDot } from "./GlobalStyles/StyleCard";
 import conditionColor from "../utils/conditionColor";
+import { formatPrice } from "../utils/formatPrice";
 import FitTag from "./FitTag";
 
 // One listing tile, linking to its detail page. Used by the homepage, search
@@ -19,7 +20,7 @@ export default function ListingCard({ listing, ownerMeta }) {
         <div className="cardBody">
           <h2>{listing.title}</h2>
           <div className="cardMeta">
-            <PriceBadge>${listing.price}</PriceBadge>
+            <PriceBadge>{formatPrice(listing.price)}</PriceBadge>
             <span className="conditionRow">
               <ConditionDot color={conditionColor(listing.condition)} />
               {listing.condition}
