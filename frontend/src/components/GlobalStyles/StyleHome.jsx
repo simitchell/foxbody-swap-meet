@@ -2,39 +2,101 @@ import styled from "styled-components";
 import { CardContainer } from "./StyleCard";
 import { phone, compactHome } from "./breakpoints";
 
-export const HomeContainer = styled.div`
-  .listingHeader {
-    text-align: center;
-    margin: 3rem;
+export const HomeContainer = styled.div``;
+
+export const FreshSection = styled.section`
+  margin: 3rem auto 0;
+  max-width: 1100px;
+  padding: 0 24px;
+
+  @media ${compactHome} {
+    margin-top: 24px;
+    padding: 0 16px;
+  }
+`;
+
+export const FreshHeading = styled.div`
+  align-items: baseline;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
   }
 
-  /* Phones (portrait and landscape): heading on the left, listing count on
-     the right. */
+  p {
+    color: #4b5563;
+    font-size: 14px;
+    margin: 4px 0 0;
+  }
+
+  .browseAll {
+    flex: 0 0 auto;
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .compact {
+    display: none;
+  }
+
   @media ${compactHome} {
-    .listingHeader {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 12px;
-      margin: 24px 16px 12px;
-      text-align: left;
+    margin-bottom: 4px;
+
+    h2 {
+      font-size: 20px;
     }
-    .listingHeader h2 {
-      margin: 0;
+
+    p,
+    .wide {
+      display: none;
     }
-    /* Two classes, so it beats DisplayListings' own .listingCount { display: none }. */
-    .listingHeader .listingCount {
+
+    .compact {
       display: inline;
-      color: #6b7280;
+    }
+
+    /* A 44px tap height without making the row look any taller. */
+    .browseAll {
+      align-items: center;
+      display: inline-flex;
       font-size: 14px;
-      white-space: nowrap;
+      min-height: 44px;
     }
-    /* The shared grid has 16px of padding; drop the top part here so the gap
-       under the heading row is just its 12px margin. The selector below is
-       the grid's own generated class, so this only applies inside the homepage. */
-    ${CardContainer} {
-      padding-top: 0;
-    }
+  }
+`;
+
+// 4 x 3 on desktop. The shared grid's mid sizes give 3 or 4 columns, or 2 at
+// the narrow end, and all of those divide 12 into even rows.
+export const FreshGrid = styled(CardContainer)`
+  padding: 0;
+
+  @media (min-width: 1024px) {
+    gap: 24px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  @media ${phone} {
+    padding: 0;
+  }
+`;
+
+export const FreshEmpty = styled.div`
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+
+  p {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0 0 8px;
   }
 `;
 
