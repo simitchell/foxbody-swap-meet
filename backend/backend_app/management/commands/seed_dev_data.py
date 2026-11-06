@@ -18,6 +18,7 @@ from backend_app import seed_data
 from backend_app.models import (
     CONDITION_CHOICES,
     FOX_BODY_FIRST_YEAR,
+    Brand,
     Cart,
     Listing,
     Profile,
@@ -144,9 +145,17 @@ class Command(BaseCommand):
             f"{Cart.objects.filter(user_id__in=users).count()} cart items."
         )
         files = [listing.image_url.name for listing in listings if listing.image_url]
+        # Found before the users go, since deleting a user clears created_by.
+        pending_brand_ids = list(
+            Brand.objects.filter(
+                name__in=seed_data.PENDING_BRANDS, created_by__in=users
+            ).values_list("pk", flat=True)
+        )
         # Profiles, listings, and cart items all cascade from User. Files don't:
         # deleting a row leaves its image on disk, so the caller removes them.
         users.delete()
+        # listings=None skips any a real listing has since started using.
+        Brand.objects.filter(pk__in=pending_brand_ids, listings=None).delete()
         return files
 
     def delete_files(self, names):
@@ -266,6 +275,12 @@ class Command(BaseCommand):
         # Shuffled so one seller's listings aren't all next to each other.
         rng.shuffle(owners)
         demo_ages = list(seed_data.DEMO_LISTING_AGES)
+        brands = {
+            brand.name: brand
+            for brand in Brand.objects.filter(
+                name__in=set(seed_data.LISTING_BRANDS.values())
+            )
+        }
 
         listings = []
         catalog = []
@@ -294,6 +309,10 @@ class Command(BaseCommand):
             listing_category, fits = (
                 ("", "") if not_set else seed_data.LISTING_DETAILS[label]
             )
+            brand = None
+            if not not_set and rng.random() >= seed_data.UNBRANDED_SHARE:
+                # .get: a brand merged away locally just leaves the part unbranded.
+                brand = brands.get(seed_data.LISTING_BRANDS.get(label))
             condition = rng.choice(CONDITION_CHOICES)[0]
             if price >= seed_data.LONG_PRICE_FROM:
                 condition = seed_data.LONG_PRICE_CONDITION
@@ -306,6 +325,7 @@ class Command(BaseCommand):
                 price=price,
                 description=description,
                 condition=condition,
+                brand=brand,
                 category=listing_category,
                 fits=fits,
                 created_at=created_at,
@@ -315,7 +335,30 @@ class Command(BaseCommand):
                 self.attach_image(rng, listing, category, label, photos)
             listings.append(listing)
         self.bump_some_listings(rng, listings, now)
+        self.seed_pending_brands(rng, listings)
         return listings
+
+    def seed_pending_brands(self, rng, listings):
+        """Gives one demo listing and one other seller's a pending brand."""
+        demo = [
+            listing
+            for listing in listings
+            if listing.username == seed_data.DEMO_USERNAME and listing.category
+        ]
+        others = [
+            listing
+            for listing in listings
+            if listing.username != seed_data.DEMO_USERNAME and listing.category
+        ]
+        chosen = rng.sample(demo, min(1, len(demo)))
+        chosen += rng.sample(others, min(1, len(others)))
+        for name, listing in zip(seed_data.PENDING_BRANDS, chosen):
+            brand, _created = Brand.objects.get_or_create(
+                name=name,
+                defaults={"is_approved": False, "created_by": listing.user},
+            )
+            listing.brand = brand
+            listing.save(update_fields=["brand"])
 
     def listing_dates(self, rng, owner, now, demo_ages):
         """Returns (created_at, bumped_at), which start out equal when known."""

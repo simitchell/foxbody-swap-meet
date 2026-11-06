@@ -857,6 +857,49 @@ class SeedDevDataTests(TestCase):
             self.assertIn(category, Category.values)
             self.assertIn(fits, Fits.values)
 
+    def test_brand_map_matches_the_catalog_and_starting_list(self):
+        labels = {part[1] for part in seed_data.LISTINGS}
+        self.assertLessEqual(set(seed_data.LISTING_BRANDS), labels)
+        names = set(seed_data.LISTING_BRANDS.values())
+        self.assertEqual(Brand.objects.filter(name__in=names).count(), len(names))
+
+    def test_most_listings_get_a_brand_and_some_stay_unbranded(self):
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__in=self.seeded())
+        share = listings.filter(brand=None).count() / listings.count()
+        self.assertGreater(share, 0.10)
+        self.assertLess(share, 0.45)
+
+    def test_pending_brands_are_seeded_and_replaced_by_flush(self):
+        self.run_seed("--users", "25")
+        def pending():
+            return Brand.objects.filter(is_approved=False)
+
+        self.assertCountEqual(
+            pending().values_list("name", flat=True), seed_data.PENDING_BRANDS
+        )
+        for brand in pending():
+            self.assertTrue(brand.listings.exists())
+            self.assertIsNotNone(brand.created_by)
+        self.assertTrue(
+            Listing.objects.filter(
+                username="seed_demo", brand__is_approved=False
+            ).exists()
+        )
+        self.run_seed("--users", "25", "--flush")
+        self.assertEqual(pending().count(), len(seed_data.PENDING_BRANDS))
+        self.run_seed("--flush-only")
+        self.assertFalse(pending().exists())
+        self.assertTrue(Brand.objects.filter(name="Saleen").exists())
+
+    def test_flush_keeps_a_pending_brand_a_real_listing_uses(self):
+        self.run_seed("--users", "25")
+        brand = Brand.objects.get(name=seed_data.PENDING_BRANDS[0])
+        real = make_user("alice")
+        Listing.objects.create(user=real, title="Mine", price=1, brand=brand)
+        self.run_seed("--flush-only")
+        self.assertTrue(Brand.objects.filter(pk=brand.pk).exists())
+
     def test_listing_values_are_valid_or_not_set(self):
         self.run_seed("--users", "25")
         listings = Listing.objects.filter(user__in=self.seeded())

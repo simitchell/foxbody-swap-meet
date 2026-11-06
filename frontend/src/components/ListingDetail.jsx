@@ -247,20 +247,28 @@ export default function ListingDetail() {
                       </div>
                     </div>
                   </div>
-                  {(listingDetail.category_label || listingDetail.fits_label) && (
+                  {(listingDetail.brand_name || listingDetail.category_label) && (
                     <div className="top-row">
+                      {listingDetail.brand_name && (
+                        <div className="cell">
+                          <p className="label">Brand</p>
+                          <p className="value">{listingDetail.brand_name}</p>
+                        </div>
+                      )}
                       {listingDetail.category_label && (
                         <div className="cell">
                           <p className="label">Category</p>
                           <p className="value">{listingDetail.category_label}</p>
                         </div>
                       )}
-                      {listingDetail.fits_label && (
-                        <div className="cell">
-                          <p className="label">Fits</p>
-                          <p className="value">{listingDetail.fits_label}</p>
-                        </div>
-                      )}
+                    </div>
+                  )}
+                  {listingDetail.fits_label && (
+                    <div className="top-row">
+                      <div className="cell">
+                        <p className="label">Fits</p>
+                        <p className="value">{listingDetail.fits_label}</p>
+                      </div>
                     </div>
                   )}
                   {listingDetail.created_at !== undefined && (

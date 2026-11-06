@@ -207,11 +207,11 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   `isEditing` flag and swaps its right column for the prop-driven `EditListing` form
   (`listing`/`onSaved`/`onCancel`). Saves PATCH only the changed fields and update
   the listing from the response, with no refetch.
-- Listing cards (`ListingCard`) show the category and a `FitTag` (colors and
+- Listing cards (`ListingCard`) show "Brand · Category" and a `FitTag` (colors and
   labels in `utils/fitment.js`), not the seller; the seller and state only appear
   on listing detail. Not-set listings show neither on cards, but the row keeps its
   height so grids line up. Prices go through `utils/formatPrice.js`.
-- Both listing forms share `CategoryField` and `FitsField`, with options and the
+- Both listing forms share `BrandField`, `CategoryField` and `FitsField`, with options and the
   inline checks in `utils/listingChoices.js`. Those values must match `Category`
   and `Fits` in `models.py`; there's no endpoint for them.
 - Owner-only listing age: because the API only sends dates to the owner, owner

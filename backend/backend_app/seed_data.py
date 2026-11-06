@@ -332,3 +332,61 @@ LISTING_DETAILS = {
     "Shop Manuals": ("other", "all"),
     "Car Cover": ("other", "aero"),
 }
+
+# Each part's brand, by image label, matching a name in the starting brand list.
+# Parts not listed here are unbranded. Used parts often have no known brand, so
+# a share of the rest are left blank as well.
+LISTING_BRANDS = {
+    "GT40 Heads": "Trick Flow",
+    "E303 Cam": "Ford Performance / Ford Racing",
+    "65mm TB": "BBK",
+    "24lb Injectors": "Ford Performance / Ford Racing",
+    "Mass Air": "Pro-M",
+    "Headers": "Kooks",
+    "Intake": "Edelbrock",
+    "Long Block": "Ford (OEM)",
+    "Valve Covers": "Ford Performance / Ford Racing",
+    "Oil Pan": "Canton",
+    "Cobra Swap": "Ford (OEM)",
+    "T-5 Package": "Tremec",
+    "T-5": "Tremec",
+    "8.8 Rear": "Ford (OEM)",
+    "Full Rear End": "Moser",
+    "Pro 5.0": "Pro 5.0",
+    "Clutch Cable": "Steeda",
+    "Gears": "Ford Performance / Ford Racing",
+    "K-Member": "Maximum Motorsports",
+    "Connectors": "UPR",
+    "Bilsteins": "Bilstein",
+    "Coilovers": "Maximum Motorsports",
+    "Control Arms": "Steeda",
+    "Sway Bar": "Ford (OEM)",
+    "Caster Plates": "Maximum Motorsports",
+    "Lowering Springs": "Steeda",
+    "Bump Steer": "Maximum Motorsports",
+    "Bezels": "Ford (OEM)",
+    "Cobra R Hood": "Cervini's",
+    "Ground Effects": "Ford (OEM)",
+    "Saleen Wing": "Saleen",
+    "LX Taillights": "Ford (OEM)",
+    "Hood": "Ford (OEM)",
+    "Fender": "Ford (OEM)",
+    "Headlights": "Ford (OEM)",
+    "Door": "Ford (OEM)",
+    "Antenna": "Motorcraft",
+    "Recaro Seats": "Ford (OEM)",
+    "Gauge Cluster": "Ford (OEM)",
+    "Door Panels": "Ford (OEM)",
+    "Steering Wheel": "Ford (OEM)",
+    "Dash Pad": "Ford (OEM)",
+    "Pony Wheels": "Ford (OEM)",
+    "Turbine Wheels": "Ford (OEM)",
+    "Bullitts": "Ford Performance / Ford Racing",
+    "Center Caps": "Ford (OEM)",
+    "Spare": "Ford (OEM)",
+    "Shop Manuals": "Ford (OEM)",
+}
+UNBRANDED_SHARE = 0.10
+
+# Suggested by seeded users and waiting for approval, to test the admin flow.
+PENDING_BRANDS = ["Palmetto Fox Fab", "Dixie 5.0 Garage"]
