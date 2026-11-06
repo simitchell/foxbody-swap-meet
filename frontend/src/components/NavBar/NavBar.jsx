@@ -73,6 +73,9 @@ export default function MainNav() {
       <NavRight $open={menuOpen}>
         <ul>
           <li>
+            <Link to="/browse">Browse</Link>
+          </li>
+          <li>
             <Link to="/aboutus">About Us</Link>
           </li>
           <li>

@@ -9,6 +9,14 @@ export const CATEGORY_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+// These values must match CONDITION_CHOICES in models.py.
+export const CONDITION_OPTIONS = [
+  { value: "new", label: "New" },
+  { value: "great", label: "Great" },
+  { value: "good", label: "Good" },
+  { value: "fair", label: "Fair" },
+];
+
 export const FIT_OPTIONS = [
   {
     value: "four_eye",
