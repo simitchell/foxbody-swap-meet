@@ -22,9 +22,23 @@ class CustomUserAdmin(UserAdmin):
         return super().get_inline_instances(request, obj)
 
 
+class ListingAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "username",
+        "price",
+        "category",
+        "fits",
+        "created_at",
+        "bumped_at",
+    ]
+    list_filter = ["category", "fits"]
+    readonly_fields = ["created_at"]
+
+
 # Register your models here.
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
-admin.site.register(Listing)
+admin.site.register(Listing, ListingAdmin)
 admin.site.register(Profile)
 admin.site.register(Cart)

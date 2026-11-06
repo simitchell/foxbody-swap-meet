@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 
 # lets us explicitly set upload path and filename
@@ -21,6 +22,24 @@ CONDITION_CHOICES = [
     ("good", "Good"),
     ("fair", "Fair"),
 ]
+
+
+# The value on the left is what's stored; the label is only for display, so a
+# label can be reworded without touching any data. Blank means "Not set".
+class Category(models.TextChoices):
+    ENGINE = "engine", "Engine"
+    DRIVETRAIN = "drivetrain", "Drivetrain"
+    SUSPENSION_BRAKES = "suspension_brakes", "Suspension & Brakes"
+    EXTERIOR = "exterior", "Exterior"
+    INTERIOR = "interior", "Interior"
+    WHEELS_TIRES = "wheels_tires", "Wheels & Tires"
+    OTHER = "other", "Other"
+
+
+class Fits(models.TextChoices):
+    FOUR_EYE = "four_eye", "Four-eye ('79–'86)"
+    AERO = "aero", "Aero ('87–'93)"
+    ALL = "all", "All Fox Bodies ('79–'93)"
 
 
 # Create your models here.
@@ -59,6 +78,20 @@ class Listing(models.Model):
         null=True,
         blank=True,
     )
+    category = models.CharField(
+        max_length=20, choices=Category.choices, blank=True, default=""
+    )
+    fits = models.CharField(
+        max_length=10, choices=Fits.choices, blank=True, default=""
+    )
+    # When the listing was first posted. Never changes. Null means it was posted
+    # before we recorded dates.
+    created_at = models.DateTimeField(
+        null=True, blank=True, default=timezone.now, editable=False
+    )
+    # What "Newest" sorts by. A future paid bump sets this to now, moving the
+    # listing back to the top without rewriting its real age.
+    bumped_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self) -> str:
         return self.title

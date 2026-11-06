@@ -13,8 +13,5 @@ export const CreateListingContainer = styled.div`
     }
     .createListingForm {
         flex: 1 1 300px;
-        h2 {
-            padding-left: 10%;
-        }
     }
 `

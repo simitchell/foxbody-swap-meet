@@ -334,3 +334,28 @@
 - [ ] Listing has no created date or default sort order, so the homepage order
       is whatever Postgres returns; needed before sorting or pagination
 - [ ] Listing display ideas from browsing with fuller data (to be added)
+
+## Listing fields: Category, Fits, owner-only dates (feature/listing-category-fits)
+
+- [x] Category and Fits on listings, required to save, blank means "Not set"
+- [x] created_at (real posting date, null for older listings) and bumped_at
+      (drives "Newest"), both returned only to the listing's owner
+- [x] Create and edit forms share CategoryField and FitsField, with inline errors
+- [x] Cards drop the seller line and show category + fit tag; phone card puts price
+      and condition on one row
+- [x] Listing age on Your Listings and the owner's detail page, amber at 60+ days
+- [x] Prices show commas everywhere, including cart totals
+- [x] Seed data has realistic categories, fits, and dates, and seed_demo shows
+      every state
+- [ ] Paid listing bump (future): ListingBump model (listing, user, amount, payment
+      id, created_at), a bump endpoint that sets bumped_at = now, a once-per-7-days
+      limit, Stripe checkout, maybe a 'Bumped' badge. bumped_at is already in place
+      and drives Newest sorting.
+- [ ] Default sort order still isn't applied: the older "no created date or default
+      sort order" item above is half done, and the sort comes in PR 2
+- [ ] Age text wraps to 2-3 lines on phone Your Listings cards ("Listed Oct 2, 2025
+      · 400 days ago"); consider shorter wording there
+- [ ] The listing forms don't require title, price, or description, and those
+      model fields are null=True, so the API may accept them empty; worth checking
+- [ ] Add PropTypes or turn off react/prop-types: new listing components add to the
+      lint errors that chore/lint-cleanup is working through

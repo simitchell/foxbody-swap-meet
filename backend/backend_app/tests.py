@@ -11,14 +11,15 @@ from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
-from django.test import TestCase, override_settings
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from . import seed_data
 from .management.commands.seed_dev_data import Command as SeedCommand
-from .models import Cart, Listing, Profile
+from .models import Cart, Category, Fits, Listing, Profile
 
 PASSWORD = "S3cure-testpass!"
 
@@ -235,13 +236,176 @@ class SellerStateTests(APITestCase):
 
     def test_seller_state_is_read_only(self):
         self.client.force_authenticate(self.listing.user)
-        self.client.put(
+        response = self.client.put(
             f"/listing/{self.listing.id}/",
-            {"title": "GT40 intake", "price": 100, "seller_state": "CA"},
+            {
+                "title": "GT40 intake",
+                "price": 100,
+                "category": "engine",
+                "fits": "all",
+                "seller_state": "CA",
+            },
             format="multipart",
         )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.listing.user.profile.refresh_from_db()
         self.assertEqual(self.listing.user.profile.state, "OH")
+
+
+class ListingFieldsTests(APITestCase):
+    """Category and Fits are required to save, and dates are owner-only."""
+
+    def setUp(self):
+        self.seller = make_user("seller")
+        self.other = make_user("other")
+        # Created through the ORM, so blank here means "Not set", like a
+        # listing from before these fields existed.
+        self.not_set = Listing.objects.create(
+            user=self.seller,
+            username="seller",
+            title="K-member",
+            price=300,
+            description="Used",
+        )
+        self.url = f"/listing/{self.not_set.id}/"
+
+    def valid_data(self, **overrides):
+        return {
+            "title": "T-5",
+            "price": 500,
+            "description": "Rebuilt",
+            "condition": "good",
+            "category": "drivetrain",
+            "fits": "all",
+            **overrides,
+        }
+
+    def post(self, data):
+        self.client.force_authenticate(self.seller)
+        return self.client.post("/listing/", data, format="multipart")
+
+    def patch(self, data, user=None):
+        self.client.force_authenticate(user or self.seller)
+        return self.client.patch(self.url, data, format="multipart")
+
+    def test_create_requires_category_and_fits(self):
+        data = self.valid_data()
+        del data["category"], data["fits"]
+        response = self.post(data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["category"], ["Choose a category."])
+        self.assertEqual(response.data["fits"], ["Choose which cars it fits."])
+
+    def test_create_rejects_blank_values(self):
+        response = self.post(self.valid_data(category="", fits=""))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"category", "fits"})
+
+    def test_create_returns_values_and_labels(self):
+        response = self.post(
+            self.valid_data(category="suspension_brakes", fits="aero")
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["category"], "suspension_brakes")
+        self.assertEqual(response.data["category_label"], "Suspension & Brakes")
+        self.assertEqual(response.data["fits"], "aero")
+        self.assertEqual(response.data["fits_label"], "Aero ('87–'93)")
+
+    def test_invalid_choice_gets_a_readable_400(self):
+        response = self.post(self.valid_data(category="tires", fits="mustang"))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["category"], ["Choose a valid category."])
+        self.assertEqual(
+            response.data["fits"], ["Choose a valid option for which cars it fits."]
+        )
+
+    def test_patching_only_price_on_not_set_listing_is_rejected(self):
+        response = self.patch({"price": 250})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"category", "fits"})
+        self.not_set.refresh_from_db()
+        self.assertEqual(self.not_set.price, 300)
+
+    def test_patching_one_of_two_on_not_set_listing_is_rejected(self):
+        response = self.patch({"category": "engine"})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"fits"})
+
+    def test_patching_both_on_not_set_listing_succeeds(self):
+        response = self.patch({"category": "suspension_brakes", "fits": "all"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.not_set.refresh_from_db()
+        self.assertEqual(self.not_set.category, "suspension_brakes")
+        self.assertEqual(self.not_set.fits, "all")
+
+    def test_patching_only_price_succeeds_once_both_are_set(self):
+        Listing.objects.filter(pk=self.not_set.pk).update(
+            category="engine", fits="aero"
+        )
+        response = self.patch({"price": 250})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_patch_cannot_blank_a_set_value(self):
+        Listing.objects.filter(pk=self.not_set.pk).update(
+            category="engine", fits="aero"
+        )
+        response = self.patch({"category": ""})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(set(response.data), {"category"})
+
+    def test_not_set_listing_stays_public_with_blank_labels(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["category"], "")
+        self.assertEqual(response.data["category_label"], "")
+        self.assertEqual(response.data["fits_label"], "")
+
+    def test_new_listing_starts_with_equal_dates(self):
+        response = self.post(self.valid_data())
+        listing = Listing.objects.get(pk=response.data["id"])
+        self.assertIsNotNone(listing.created_at)
+        self.assertEqual(listing.created_at, listing.bumped_at)
+
+    def test_owner_sees_dates(self):
+        self.client.force_authenticate(self.seller)
+        for url in ("/listing/", self.url):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                body = response.data[0] if isinstance(response.data, list) else response.data
+                self.assertIn("created_at", body)
+                self.assertIn("bumped_at", body)
+
+    def test_other_users_and_anonymous_do_not_see_dates(self):
+        for user in (self.other, None):
+            self.client.force_authenticate(user)
+            for url in ("/listing/", self.url):
+                with self.subTest(user=user, url=url):
+                    response = self.client.get(url)
+                    body = response.data[0] if isinstance(response.data, list) else response.data
+                    self.assertNotIn("created_at", body)
+                    self.assertNotIn("bumped_at", body)
+
+    def test_anonymous_does_not_see_dates_on_ownerless_listing(self):
+        listing = Listing.objects.create(user=None, title="Orphan", price=1)
+        response = self.client.get(f"/listing/{listing.id}/")
+        self.assertNotIn("created_at", response.data)
+
+    def test_sellers_cannot_write_dates(self):
+        Listing.objects.filter(pk=self.not_set.pk).update(
+            category="engine", fits="aero"
+        )
+        self.not_set.refresh_from_db()
+        created_at, bumped_at = self.not_set.created_at, self.not_set.bumped_at
+        response = self.patch(
+            {
+                "created_at": "2000-01-01T00:00:00Z",
+                "bumped_at": "2099-01-01T00:00:00Z",
+            }
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.not_set.refresh_from_db()
+        self.assertEqual(self.not_set.created_at, created_at)
+        self.assertEqual(self.not_set.bumped_at, bumped_at)
 
 
 class WelcomeEmailTests(APITestCase):
@@ -681,3 +845,92 @@ class SeedDevDataTests(TestCase):
             self.assertLessEqual(len(title), cart_title_limit)
             self.assertLessEqual(len(description), 250)
             self.assertIsInstance(price, int)
+
+    def test_catalog_details_match_the_catalog_and_models(self):
+        labels = [part[1] for part in seed_data.LISTINGS]
+        self.assertEqual(len(labels), len(set(labels)))
+        self.assertEqual(set(labels), set(seed_data.LISTING_DETAILS))
+        for category, fits in seed_data.LISTING_DETAILS.values():
+            self.assertIn(category, Category.values)
+            self.assertIn(fits, Fits.values)
+
+    def test_listing_values_are_valid_or_not_set(self):
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__in=self.seeded())
+        self.assertTrue(listings.exclude(category="").exists())
+        self.assertTrue(listings.filter(category="", fits="").exists())
+        self.assertFalse(listings.filter(category="").exclude(fits="").exists())
+        for listing in listings.select_related("user"):
+            listing.full_clean()
+
+    def test_listing_dates_are_believable(self):
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__in=self.seeded()).select_related("user")
+        bumped = 0
+        for listing in listings.exclude(created_at=None):
+            self.assertGreaterEqual(listing.created_at, listing.user.date_joined)
+            self.assertLessEqual(listing.created_at, listing.bumped_at)
+            bumped += listing.bumped_at > listing.created_at
+        self.assertEqual(bumped, seed_data.BUMPED_LISTINGS)
+        self.assertTrue(listings.filter(created_at=None).exists())
+
+    def test_demo_user_shows_every_listing_state(self):
+        self.assertEqual(len(seed_data.DEMO_LISTING_AGES), seed_data.DEMO_LISTINGS)
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__username="seed_demo")
+        no_date = listings.get(created_at=None)
+        self.assertEqual((no_date.category, no_date.fits), ("", ""))
+        self.assertEqual(listings.filter(category="").count(), 1)
+        stale_before = timezone.now() - timedelta(days=60)
+        self.assertEqual(listings.filter(created_at__lte=stale_before).count(), 2)
+
+    def test_long_prices_get_the_longest_condition(self):
+        self.run_seed("--users", "25")
+        long_prices = Listing.objects.filter(
+            user__in=self.seeded(), price__gte=seed_data.LONG_PRICE_FROM
+        )
+        self.assertTrue(long_prices.exists())
+        self.assertFalse(
+            long_prices.exclude(condition=seed_data.LONG_PRICE_CONDITION).exists()
+        )
+
+    def test_ordinary_prices_stay_under_the_cap(self):
+        self.run_seed("--users", "25")
+        catalog_prices = {part[2]: part[3] for part in seed_data.LISTINGS}
+        for listing in Listing.objects.filter(user__in=self.seeded()):
+            cap = max(seed_data.MAX_LISTING_PRICE, catalog_prices[listing.title])
+            self.assertLessEqual(listing.price, cap)
+
+
+class ListingFieldsMigrationTests(TransactionTestCase):
+    """Listings from before these fields existed, on their way through 0036."""
+
+    BEFORE = [("backend_app", "0034_profile_signup_digest_sent_at")]
+    AFTER = [("backend_app", "0036_listing_created_at_listing_bumped_at")]
+
+    def migrate(self, target):
+        MigrationExecutor(connection).migrate(target)
+        return MigrationExecutor(connection).loader.project_state(target).apps
+
+    def migrate_to_latest(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+
+    def test_existing_listings_stay_not_set_with_no_invented_date(self):
+        # Leave the schema current for whatever test runs next.
+        self.addCleanup(self.migrate_to_latest)
+        old_apps = self.migrate(self.BEFORE)
+        OldListing = old_apps.get_model("backend_app", "Listing")
+        ids = [OldListing.objects.create(title=str(n), price=n).id for n in range(3)]
+
+        new_apps = self.migrate(self.AFTER)
+        NewListing = new_apps.get_model("backend_app", "Listing")
+        listings = list(NewListing.objects.filter(id__in=ids).order_by("id"))
+
+        for listing in listings:
+            self.assertEqual(listing.category, "")
+            self.assertEqual(listing.fits, "")
+            self.assertIsNone(listing.created_at)
+        # Distinct and in id order, so sorting by Newest is stable.
+        bumped = [listing.bumped_at for listing in listings]
+        self.assertEqual(bumped, sorted(set(bumped)))

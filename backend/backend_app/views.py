@@ -14,6 +14,7 @@ from rest_framework_simplejwt.tokens import (
 )
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import redirect
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework.throttling import ScopedRateThrottle
@@ -110,8 +111,14 @@ class ListingViewSet(viewsets.ModelViewSet):
         image = self.request.FILES.get('image_url')
         if image:
             check_image_moderation(image)
+        # One timestamp for both: separate model defaults would differ by
+        # microseconds, and a listing starts out never bumped.
+        now = timezone.now()
         serializer.save(
-            user=self.request.user, username=self.request.user.username
+            user=self.request.user,
+            username=self.request.user.username,
+            created_at=now,
+            bumped_at=now,
         )
 
     def perform_update(self, serializer):

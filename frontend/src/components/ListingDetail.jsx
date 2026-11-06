@@ -10,11 +10,15 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Toast from "./Toast";
 import EditListing, { ReplacePhotoInput } from "./EditListing";
+import { ListingAgeNote } from "./ListingAge";
 import { ProgressDiv } from "./GlobalStyles/StyleUtility";
 import conditionColor from "../utils/conditionColor";
 import apiErrorMessage from "../utils/apiErrorMessage";
 import apiFetch from "../utils/apiFetch";
+import { formatPrice } from "../utils/formatPrice";
+import { formatListedValue, isStale } from "../utils/listingAge";
 import { ConditionDot } from "./GlobalStyles/StyleCard";
+import { InfoNote } from "./GlobalStyles/StyleListingFields";
 
 import {
   DetailDescription,
@@ -61,6 +65,32 @@ export default function ListingDetail() {
   useEffect(() => {
     getIndividualListing();
   }, [id]);
+
+  const isOwner = listingDetail?.username === localStorage.getItem("username");
+
+  // The public fetch above sends no token, so the API treats everyone as a
+  // stranger. Only the owner asks again, signed in, to get the dates. Everyone
+  // else stays on the public fetch, where a stale token can't bounce them to
+  // the login page.
+  useEffect(() => {
+    if (!isOwner) return undefined;
+    let cancelled = false;
+    const getOwnerDates = async () => {
+      try {
+        const response = await apiFetch(`/listing/${id}/`);
+        if (!response.ok || cancelled) return;
+        const { created_at, bumped_at } = await response.json();
+        if (cancelled) return;
+        setListingDetail((listing) => ({ ...listing, created_at, bumped_at }));
+      } catch (error) {
+        console.error("Error fetching listing dates:", error);
+      }
+    };
+    getOwnerDates();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner, id]);
 
   // Clear the one-shot toast from history so a reload doesn't show it again.
   useEffect(() => {
@@ -109,8 +139,6 @@ export default function ListingDetail() {
       });
     }
   };
-
-  const isOwner = listingDetail?.username === localStorage.getItem("username");
 
   const handleAddToCart = async (e) => {
     e.preventDefault();
@@ -170,6 +198,9 @@ export default function ListingDetail() {
                   <img src={listingDetail.image_url} alt={listingDetail.title} />
                 </DetailImage>
                 {isEditing && <ReplacePhotoInput />}
+                {isEditing && listingDetail.created_at !== undefined && (
+                  <ListingAgeNote createdAt={listingDetail.created_at} />
+                )}
               </>
             ) : (
               <div>No detail found</div>
@@ -190,7 +221,7 @@ export default function ListingDetail() {
                 </DetailTitleBlock>
 
                 <DetailPrice>
-                  <span>${listingDetail.price}</span>
+                  <span>{formatPrice(listingDetail.price)}</span>
                 </DetailPrice>
 
                 <DetailDescription>
@@ -216,6 +247,37 @@ export default function ListingDetail() {
                       </div>
                     </div>
                   </div>
+                  {(listingDetail.category_label || listingDetail.fits_label) && (
+                    <div className="top-row">
+                      {listingDetail.category_label && (
+                        <div className="cell">
+                          <p className="label">Category</p>
+                          <p className="value">{listingDetail.category_label}</p>
+                        </div>
+                      )}
+                      {listingDetail.fits_label && (
+                        <div className="cell">
+                          <p className="label">Fits</p>
+                          <p className="value">{listingDetail.fits_label}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {listingDetail.created_at !== undefined && (
+                    <div className="listed-row">
+                      <p className="label">Listed</p>
+                      <p
+                        className={
+                          isStale(listingDetail.created_at)
+                            ? "value stale"
+                            : "value"
+                        }
+                      >
+                        {formatListedValue(listingDetail.created_at)}
+                      </p>
+                      <p className="note">Only you can see when this was listed.</p>
+                    </div>
+                  )}
                   <div className="bottom-row">
                     <p className="label">Listed by</p>
                     <div className="seller-row">
@@ -226,6 +288,12 @@ export default function ListingDetail() {
                     </div>
                   </div>
                 </DetailInfoCard>
+
+                {isOwner && (!listingDetail.category || !listingDetail.fits) && (
+                  <InfoNote role="note">
+                    Add a category and fit so buyers can find this in Browse.
+                  </InfoNote>
+                )}
 
                 {isOwner ? (
                   <OwnerActions>

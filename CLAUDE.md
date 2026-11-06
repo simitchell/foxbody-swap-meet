@@ -91,6 +91,17 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   `User` for auth. A `post_save` signal auto-creates a `Profile` for every new
   `User`. Note the `Cart` FK field is named `user_id` (it holds a User instance,
   not an int) — a migration-history artifact; preserve the name.
+- Listing `category` and `fits` are `TextChoices`, stored as short slugs. Blank
+  means "Not set": older listings stay visible, and the serializer requires both
+  to save, on create and on any edit (it checks the value the listing would end
+  up with, so a PATCH of only the price on a Not-set listing gets a 400). The
+  response also has read-only `category_label` and `fits_label`.
+- Listing dates, on purpose two fields: `created_at` is when it was first posted
+  and never changes (null for listings from before Nov 2026, never an invented
+  date). `bumped_at` is what "Newest" sorts by; a future paid bump will set it to
+  now, so a bump can't rewrite a listing's real age. Both are read-only in the API
+  and `ListingSerializer.to_representation` only returns them to the listing's
+  owner. The create view sets both from one timestamp so they start out equal.
 - API surface: DRF `DefaultRouter` registers `cart/`, `listing/`, `profile/`
   ViewSets. Standalone paths: `register/`, `token/`, `token/refresh/`, `logout/`,
   `cart/item/<pk>/` (delete). `profile/` and `cart/` use `user_id` as the lookup
@@ -166,6 +177,19 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   `isEditing` flag and swaps its right column for the prop-driven `EditListing` form
   (`listing`/`onSaved`/`onCancel`). Saves PATCH only the changed fields and update
   the listing from the response, with no refetch.
+- Listing cards (`ListingCard`) show the category and a `FitTag` (colors and
+  labels in `utils/fitment.js`), not the seller; the seller and state only appear
+  on listing detail. Not-set listings show neither on cards, but the row keeps its
+  height so grids line up. Prices go through `utils/formatPrice.js`.
+- Both listing forms share `CategoryField` and `FitsField`, with options and the
+  inline checks in `utils/listingChoices.js`. Those values must match `Category`
+  and `Fits` in `models.py`; there's no endpoint for them.
+- Owner-only listing age: because the API only sends dates to the owner, owner
+  views must fetch with a token. `DisplayUserListings` uses `apiFetch`, and
+  `ListingDetail` does its public `fetch` and then a second `apiFetch` only if the
+  viewer is the owner. `undefined` means no dates were sent; `null` means the
+  listing is from before Nov 2026. Wording and the 60-day stale rule are in
+  `utils/listingAge.js`. Only `/profile` passes `showListingAge`.
 - Styling: per-feature styled-components modules under
   `components/GlobalStyles/` (`Style*.jsx`), mixed with MUI components.
 

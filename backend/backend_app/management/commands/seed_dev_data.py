@@ -90,7 +90,7 @@ class Command(BaseCommand):
                 users, tiers = self.seed_users(
                     rng, options["users"], now, options["unstamped"]
                 )
-                listings = self.seed_listings(rng, users, photos, use_images)
+                listings = self.seed_listings(rng, users, photos, use_images, now)
                 cart_count = self.seed_carts(rng, users, listings)
         except Exception:
             # A rollback only undoes the database, not files already on disk.
@@ -186,13 +186,18 @@ class Command(BaseCommand):
                 profile_fields["bio"] = seed_data.LONGEST_BIO
                 longest_bio_used = True
 
+            days_since_joining = rng.uniform(0, SIGNUP_WINDOW_DAYS)
+            if username == seed_data.DEMO_USERNAME:
+                # Older than all of DEMO_LISTING_AGES, so no listing predates it.
+                days_since_joining = SIGNUP_WINDOW_DAYS
+
             # The post_save signal on User creates the Profile, so fill that
             # one in rather than creating a second.
             user = User.objects.create(
                 username=username,
                 email=f"{username}@{seed_data.SEED_EMAIL_DOMAIN}",
                 password=password,
-                date_joined=now - timedelta(days=rng.uniform(0, SIGNUP_WINDOW_DAYS)),
+                date_joined=now - timedelta(days=days_since_joining),
                 **names,
             )
             profile = user.profile
@@ -256,10 +261,11 @@ class Command(BaseCommand):
             return False
         return True
 
-    def seed_listings(self, rng, users, photos, use_images):
+    def seed_listings(self, rng, users, photos, use_images, now):
         owners = self.pick_listing_owners(rng, users)
         # Shuffled so one seller's listings aren't all next to each other.
         rng.shuffle(owners)
+        demo_ages = list(seed_data.DEMO_LISTING_AGES)
 
         listings = []
         catalog = []
@@ -271,8 +277,26 @@ class Command(BaseCommand):
             category, label, title, price, description = catalog.pop()
             if passes > 1:
                 # Same part from another seller, at that seller's own price.
+                catalog_price = price
                 price = 5 * round(price * rng.uniform(0.85, 1.15) / 5)
-                price = min(max(price, 5), seed_data.MAX_LISTING_PRICE)
+                # The cap stops ordinary parts drifting up. A part that's
+                # already above it just can't go any higher.
+                price = min(
+                    max(price, 5), max(seed_data.MAX_LISTING_PRICE, catalog_price)
+                )
+            created_at, bumped_at = self.listing_dates(rng, owner, now, demo_ages)
+            # Listings with no date are left Not set on the demo user, so that
+            # login always has one of each. Others are Not set at random.
+            if owner.username == seed_data.DEMO_USERNAME:
+                not_set = created_at is None
+            else:
+                not_set = rng.random() < seed_data.NOT_SET_SHARE
+            listing_category, fits = (
+                ("", "") if not_set else seed_data.LISTING_DETAILS[label]
+            )
+            condition = rng.choice(CONDITION_CHOICES)[0]
+            if price >= seed_data.LONG_PRICE_FROM:
+                condition = seed_data.LONG_PRICE_CONDITION
             # Created directly, not through the API, so this skips the
             # Rekognition check that real uploads get.
             listing = Listing.objects.create(
@@ -281,12 +305,49 @@ class Command(BaseCommand):
                 title=title,
                 price=price,
                 description=description,
-                condition=rng.choice(CONDITION_CHOICES)[0],
+                condition=condition,
+                category=listing_category,
+                fits=fits,
+                created_at=created_at,
+                bumped_at=bumped_at,
             )
             if use_images:
                 self.attach_image(rng, listing, category, label, photos)
             listings.append(listing)
+        self.bump_some_listings(rng, listings, now)
         return listings
+
+    def listing_dates(self, rng, owner, now, demo_ages):
+        """Returns (created_at, bumped_at), which start out equal when known."""
+        if owner.username == seed_data.DEMO_USERNAME:
+            days_ago = demo_ages.pop(0)
+            if days_ago is None:
+                bumped_at = now - timedelta(days=seed_data.DEMO_NO_DATE_BUMP_AGE_DAYS)
+                return None, bumped_at
+            listed_at = now - timedelta(days=days_ago)
+            return listed_at, listed_at
+
+        # Never before the seller joined.
+        listed_at = owner.date_joined + (now - owner.date_joined) * rng.random()
+        if rng.random() < seed_data.NO_DATE_SHARE:
+            return None, listed_at
+        return listed_at, listed_at
+
+    def bump_some_listings(self, rng, listings, now):
+        """Moves a few older listings to the top, as a paid bump would."""
+        old_enough = now - timedelta(days=seed_data.BUMPED_MIN_AGE_DAYS)
+        eligible = [
+            listing
+            for listing in listings
+            if listing.created_at and listing.created_at < old_enough
+            and listing.username != seed_data.DEMO_USERNAME
+        ]
+        count = min(seed_data.BUMPED_LISTINGS, len(eligible))
+        for listing in rng.sample(eligible, count):
+            listing.bumped_at = now - timedelta(
+                days=rng.uniform(0, seed_data.BUMPED_WITHIN_DAYS)
+            )
+            listing.save(update_fields=["bumped_at"])
 
     def seed_carts(self, rng, users, listings):
         demo = users[0][0]

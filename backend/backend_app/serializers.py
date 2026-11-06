@@ -31,6 +31,19 @@ class ListingSerializer(serializers.ModelSerializer):
     image_url = serializers.ImageField(required=False)
     # Public on purpose: a coarse "where is this seller" signal for meetups.
     seller_state = serializers.SerializerMethodField()
+    category_label = serializers.CharField(
+        source="get_category_display", read_only=True
+    )
+    fits_label = serializers.CharField(source="get_fits_display", read_only=True)
+
+    # Sellers must choose these to save, even when editing an older listing
+    # that has neither set.
+    REQUIRED_CHOICE_MESSAGES = {
+        "category": "Choose a category.",
+        "fits": "Choose which cars it fits.",
+    }
+    # Only the listing's owner gets these in the response.
+    OWNER_ONLY_FIELDS = ["created_at", "bumped_at"]
 
     class Meta:
         model = Listing
@@ -43,13 +56,57 @@ class ListingSerializer(serializers.ModelSerializer):
             "description",
             "image_url",
             "condition",
+            "category",
+            "category_label",
+            "fits",
+            "fits_label",
+            "created_at",
+            "bumped_at",
             "seller_state",
         ]
-        read_only_fields = ["user", "username"]
+        read_only_fields = ["user", "username", "created_at", "bumped_at"]
+        extra_kwargs = {
+            "category": {
+                "error_messages": {"invalid_choice": "Choose a valid category."}
+            },
+            "fits": {
+                "error_messages": {
+                    "invalid_choice": "Choose a valid option for which cars it fits."
+                }
+            },
+        }
 
     def get_seller_state(self, obj):
         profile = getattr(obj.user, "profile", None)
         return profile.state if profile else ""
+
+    def validate(self, attrs):
+        # A PATCH may leave a field out, so check the value the listing would
+        # end up with: the incoming one, or else what's already saved.
+        errors = {
+            field: message
+            for field, message in self.REQUIRED_CHOICE_MESSAGES.items()
+            if not attrs.get(field, getattr(self.instance, field, ""))
+        }
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = request.user if request else None
+        # is_authenticated matters: a listing's user can be null, and an
+        # anonymous visitor's pk is None too, so None == None would match.
+        is_owner = (
+            user is not None
+            and user.is_authenticated
+            and user.pk == instance.user_id
+        )
+        if not is_owner:
+            for field in self.OWNER_ONLY_FIELDS:
+                data.pop(field, None)
+        return data
 
 
 class ProfileSerializer(serializers.ModelSerializer):

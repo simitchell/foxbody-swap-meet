@@ -1,6 +1,7 @@
-import { API_BASE_URL } from "../config";
+import apiFetch from "../utils/apiFetch";
 import { CardContainer, NoDataDiv } from "./GlobalStyles/StyleCard";
 import ListingCard from "./ListingCard";
+import { ListingAgeRow } from "./ListingAge";
 import { useState, useEffect } from "react";
 import React from "react";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -10,7 +11,9 @@ import {
   ProgressDiv,
 } from "./GlobalStyles/StyleDisplayListing";
 
-export default function DisplayUserListings({ onCountChange }) {
+// showListingAge: only the profile page passes it, so listing dates stay on
+// the seller's own dashboard.
+export default function DisplayUserListings({ onCountChange, showListingAge }) {
   const [listingData, setListingData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
@@ -18,8 +21,8 @@ export default function DisplayUserListings({ onCountChange }) {
   const getInfo = async () => {
     // console.log("here");
     try {
-      const apiUrl = `${API_BASE_URL}/listing/`;
-      const response = await fetch(apiUrl);
+      // Signed in, because the API only sends dates to a listing's owner.
+      const response = await apiFetch("/listing/");
       const data = await response.json();
       setListingData(data);
     } catch (error) {
@@ -58,7 +61,15 @@ export default function DisplayUserListings({ onCountChange }) {
       ) : (
         <CardContainer>
           {filteredListings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} showSeller={false} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              ownerMeta={
+                showListingAge && listing.created_at !== undefined ? (
+                  <ListingAgeRow createdAt={listing.created_at} />
+                ) : undefined
+              }
+            />
           ))}
         </CardContainer>
       )}

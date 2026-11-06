@@ -6,6 +6,7 @@ import { ConditionDot, NoDataDiv } from "./GlobalStyles/StyleCard";
 import conditionColor from "../utils/conditionColor";
 import apiErrorMessage from "../utils/apiErrorMessage";
 import apiFetch from "../utils/apiFetch";
+import { formatPrice, formatPriceWithCents } from "../utils/formatPrice";
 import Toast from "./Toast";
 import {
   CartDiv,
@@ -137,7 +138,7 @@ export default function CartDetail() {
                         {item.condition}
                       </ConditionPill>
                     </CartItemInfo>
-                    <CartItemPrice>${item.price}</CartItemPrice>
+                    <CartItemPrice>{formatPrice(item.price)}</CartItemPrice>
                     <RemoveButton
                       type="button"
                       onClick={() => handleDelete(item.id)}
@@ -156,7 +157,7 @@ export default function CartDetail() {
             <h2>Checkout</h2>
             <RowItems>
               <p>Items</p>
-              <p>${cartTotal.toFixed(2)}</p>
+              <p>{formatPriceWithCents(cartTotal)}</p>
             </RowItems>
             <RowTaxes>
               <p>Taxes (6%)</p>
@@ -168,7 +169,7 @@ export default function CartDetail() {
             </RowShipping>
             <RowTotal>
               <p>Total</p>
-              <p>${cartTotal.toFixed(2)}</p>
+              <p>{formatPriceWithCents(cartTotal)}</p>
             </RowTotal>
             <Button variant="contained">Proceed to Checkout</Button>
           </CartSummary>
