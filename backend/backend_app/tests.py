@@ -20,7 +20,7 @@ from rest_framework.test import APITestCase
 
 from . import seed_data
 from .management.commands.seed_dev_data import Command as SeedCommand
-from .models import Cart, Category, Fits, Listing, Profile
+from .models import Brand, Cart, Category, Fits, Listing, Profile
 
 PASSWORD = "S3cure-testpass!"
 
@@ -1112,6 +1112,106 @@ class ListingFilterTests(APITestCase):
         # PR 3's /browse page relies on this to fall back to page 1.
         response = self.client.get("/listing/", {"page": 99})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class BrandAdminTests(TestCase):
+    URL = "/admin/backend_app/brand/"
+
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            "boss", "boss@example.com", PASSWORD
+        )
+        self.client.force_login(self.admin_user)
+        self.keep = Brand.objects.create(name="Test Maximum")
+        self.dupe = Brand.objects.create(name="Test Max", is_approved=False)
+        self.other_dupe = Brand.objects.create(name="Test MM", is_approved=False)
+        seller = make_user("seller")
+        self.listing = Listing.objects.create(
+            user=seller, title="K-member", price=1, brand=self.dupe
+        )
+
+    def merge(self, selected, **extra):
+        return self.client.post(
+            self.URL,
+            {
+                "action": "merge_brands",
+                "_selected_action": [brand.pk for brand in selected],
+                **extra,
+            },
+            follow=True,
+        )
+
+    def test_list_page_shows_listing_counts(self):
+        response = self.client.get(self.URL, {"q": "Test Max"})
+        self.assertEqual(response.status_code, 200)
+        counts = {b.name: b.listing_count for b in response.context["cl"].result_list}
+        self.assertEqual(counts["Test Max"], 1)
+        self.assertEqual(counts["Test Maximum"], 0)
+
+    def test_approve_action(self):
+        self.client.post(
+            self.URL,
+            {"action": "approve_brands", "_selected_action": [self.dupe.pk]},
+        )
+        self.dupe.refresh_from_db()
+        self.other_dupe.refresh_from_db()
+        self.assertTrue(self.dupe.is_approved)
+        self.assertFalse(self.other_dupe.is_approved)
+
+    def test_merge_first_shows_a_page_and_changes_nothing(self):
+        response = self.merge([self.dupe, self.other_dupe])
+        self.assertContains(response, "Brand to keep")
+        self.assertTrue(Brand.objects.filter(pk=self.dupe.pk).exists())
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.brand, self.dupe)
+
+    def test_merge_moves_listings_and_deletes_the_others(self):
+        response = self.merge(
+            [self.dupe, self.other_dupe], apply="1", keep=self.keep.pk
+        )
+        self.assertContains(response, "Merged 2 brand(s) into Test Maximum")
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.brand, self.keep)
+        self.assertFalse(
+            Brand.objects.filter(pk__in=[self.dupe.pk, self.other_dupe.pk]).exists()
+        )
+
+    def test_merge_can_keep_one_of_the_selected_brands(self):
+        self.merge([self.keep, self.dupe], apply="1", keep=self.keep.pk)
+        self.assertTrue(Brand.objects.filter(pk=self.keep.pk).exists())
+        self.assertFalse(Brand.objects.filter(pk=self.dupe.pk).exists())
+
+    def test_merge_with_only_the_kept_brand_does_nothing(self):
+        response = self.merge([self.keep], apply="1", keep=self.keep.pk)
+        self.assertContains(response, "Nothing to merge")
+        self.assertTrue(Brand.objects.filter(pk=self.keep.pk).exists())
+
+    def test_merge_without_choosing_a_brand_keeps_everything(self):
+        response = self.merge([self.dupe], apply="1")
+        self.assertContains(response, "Brand to keep")
+        self.assertTrue(Brand.objects.filter(pk=self.dupe.pk).exists())
+
+    def test_merging_into_a_pending_brand_warns(self):
+        response = self.merge([self.dupe], apply="1", keep=self.other_dupe.pk)
+        self.assertContains(response, "is still pending")
+
+    def test_failed_merge_leaves_everything_alone(self):
+        with mock.patch(
+            "django.db.models.query.QuerySet.delete", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                self.merge([self.dupe], apply="1", keep=self.keep.pk)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.brand, self.dupe)
+
+    def test_listing_admin_pages_load(self):
+        for url in (
+            "/admin/backend_app/listing/",
+            f"/admin/backend_app/listing/{self.listing.pk}/change/",
+            "/admin/backend_app/brand/add/",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
 
 
 class ListingFieldsMigrationTests(TransactionTestCase):
