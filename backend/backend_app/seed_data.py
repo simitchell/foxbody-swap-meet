@@ -8,6 +8,14 @@ SEED_EMAIL_DOMAIN = "seed.example.com"
 # All seeded users share this password, so any of them can log in.
 SEED_PASSWORD = "foxbody-dev-123"
 
+# A known login with a full profile and a few listings, for quick checks.
+DEMO_USERNAME = "seed_demo"
+DEMO_LISTINGS = 6
+
+# How many users get cart items (the demo user plus others), and how many each.
+CART_USERS = 4
+CART_ITEMS_RANGE = (1, 4)
+
 # Share of profiles in each state of completeness.
 FULL_PROFILE_SHARE = 0.60
 PARTIAL_PROFILE_SHARE = 0.25

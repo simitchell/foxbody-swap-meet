@@ -18,6 +18,7 @@ from backend_app import seed_data
 from backend_app.models import (
     CONDITION_CHOICES,
     FOX_BODY_FIRST_YEAR,
+    Cart,
     Listing,
     current_year,
 )
@@ -76,7 +77,8 @@ class Command(BaseCommand):
                 users, tiers = self.seed_users(
                     rng, options["users"], now, options["unstamped"]
                 )
-                listing_count = self.seed_listings(rng, users, photos, use_images)
+                listings = self.seed_listings(rng, users, photos, use_images)
+                cart_count = self.seed_carts(rng, users, listings)
         except Exception:
             # A rollback only undoes the database, not files already on disk.
             for name in self.saved_files:
@@ -87,10 +89,11 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"Created {options['users']} users and profiles "
                 f"({tiers['full']} full, {tiers['partial']} partial, "
-                f"{tiers['empty']} empty) and {listing_count} listings "
-                f"({len(self.saved_files)} images)."
+                f"{tiers['empty']} empty), {len(listings)} listings "
+                f"({len(self.saved_files)} images), and {cart_count} cart items."
             )
         )
+        self.stdout.write(f"Demo login: {seed_data.DEMO_USERNAME}")
         self.stdout.write(f"Password for every seeded user: {seed_data.SEED_PASSWORD}")
 
     def check_local_only(self):
@@ -119,10 +122,15 @@ class Command(BaseCommand):
         tiers = ["full"] * full + ["partial"] * partial
         tiers += ["empty"] * (count - len(tiers))
         rng.shuffle(tiers)
+        # The demo user comes first and always has a full profile.
+        tiers.remove("full")
+        tiers.insert(0, "full")
 
-        usernames = rng.sample(seed_data.USERNAMES, min(count, len(seed_data.USERNAMES)))
+        others = count - 1
+        usernames = [seed_data.DEMO_USERNAME]
+        usernames += rng.sample(seed_data.USERNAMES, min(others, len(seed_data.USERNAMES)))
         # Past the hand-written list, reuse names with a number on the end.
-        for i in range(len(usernames), count):
+        for i in range(len(usernames) - 1, others):
             base = seed_data.USERNAMES[i % len(seed_data.USERNAMES)]
             usernames.append(f"{base}_{i}")
 
@@ -211,6 +219,7 @@ class Command(BaseCommand):
         # Shuffled so one seller's listings aren't all next to each other.
         rng.shuffle(owners)
 
+        listings = []
         catalog = []
         passes = 0
         for owner in owners:
@@ -234,23 +243,53 @@ class Command(BaseCommand):
             )
             if use_images:
                 self.attach_image(rng, listing, category, label, photos)
-        return len(owners)
+            listings.append(listing)
+        return listings
+
+    def seed_carts(self, rng, users, listings):
+        demo = users[0][0]
+        others = [user for user, _tier in users[1:]]
+        buyers = [demo] + rng.sample(others, min(seed_data.CART_USERS - 1, len(others)))
+
+        cart_count = 0
+        for buyer in buyers:
+            # Never their own listing: the real page hides Add to Cart for owners.
+            available = [l for l in listings if l.user_id != buyer.id]
+            low, high = seed_data.CART_ITEMS_RANGE
+            for listing in rng.sample(available, min(rng.randint(low, high), len(available))):
+                # Cart rows hold a copy of the listing, not a link to it. The
+                # real flow copies the API's full image URL, and the cart page
+                # uses it directly as <img src>, so it can't be relative here.
+                image_url = None
+                if listing.image_url:
+                    image_url = f"{settings.BACKEND_URL}{listing.image_url.url}"
+                Cart.objects.create(
+                    user_id=buyer,
+                    cart_item=listing.title,
+                    image_url=image_url,
+                    price=listing.price,
+                    condition=listing.condition,
+                )
+                cart_count += 1
+        return cart_count
 
     def pick_listing_owners(self, rng, users):
         """Returns one entry per listing to create, repeating busy sellers."""
-        shuffled = rng.sample(users, len(users))
+        demo = users[0][0]
+        others = users[1:]
+        shuffled = rng.sample(others, len(others))
         # The power seller gets a full profile, so that page shows everything.
         shuffled.sort(key=lambda pair: pair[1] != "full")
         zero = round(len(users) * seed_data.ZERO_LISTINGS_SHARE)
         many = round(len(users) * seed_data.MANY_LISTINGS_SHARE)
 
-        owners = []
+        owners = [demo] * seed_data.DEMO_LISTINGS
         for position, (user, _tier) in enumerate(shuffled):
             if position == 0:
                 listing_count = seed_data.POWER_SELLER_LISTINGS
             elif position <= many:
                 listing_count = rng.randint(*seed_data.MANY_LISTINGS_RANGE)
-            elif position < len(users) - zero:
+            elif position < len(others) - zero:
                 listing_count = rng.randint(*seed_data.FEW_LISTINGS_RANGE)
             else:
                 listing_count = 0
