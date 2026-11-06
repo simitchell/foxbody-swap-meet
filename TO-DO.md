@@ -321,11 +321,12 @@
 
 ## Found while testing with seed data
 
-- [ ] BUG: /cart at phone width pushes Remove off-screen, and body's
-      overflow-x: hidden means you can't scroll to it. At <=768px
-      CartOuterContainer is a column with align-items: flex-start, so the
-      main column grows to fit nowrap titles (520px on a 375px screen).
-      align-items: stretch at that breakpoint fixed it when tried live
+- [x] BUG: /cart at phone width pushed Remove off-screen, and body's
+      overflow-x: hidden meant you couldn't scroll to it. Fixed with
+      align-items: stretch at <=768px (fix/cart-phone-overflow), and cart
+      titles now wrap to 2 lines at that width
+- [ ] Cart titles are still tight around 769-900px, where the checkout panel
+      stays beside the items and titles stay on one line (about 115px at 769)
 - [ ] A listing with no image renders a broken <img> with no source; needs a
       fallback (only "Bob spoof attempt" locally, but the API allows it)
 - [ ] "Your Listings" empty state just says "No data found"; a friendlier
