@@ -1,4 +1,4 @@
-from .models import US_STATES, Cart, Listing, Profile, User
+from .models import US_STATES, Brand, Cart, Listing, Profile, User
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
@@ -27,8 +27,38 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return data
 
 
+class BrandSerializer(serializers.ModelSerializer):
+    # Only on the brand list, which annotates it.
+    listing_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Brand
+        fields = ["slug", "name", "is_approved", "listing_count"]
+
+
+class BrandSuggestionSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=Brand._meta.get_field("name").max_length)
+
+    def validate_name(self, value):
+        # "Trick   Flow" and "Trick Flow" are the same brand.
+        return " ".join(value.split())
+
+
 class ListingSerializer(serializers.ModelSerializer):
     image_url = serializers.ImageField(required=False)
+    # Written by slug, like the filter and the URLs. Blank clears it. Any existing
+    # brand is accepted, pending ones too: /brands/suggest/ hands back a pending
+    # brand to anyone who types its name, so a seller has to be able to use it.
+    brand = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Brand.objects.all(),
+        allow_null=True,
+        required=False,
+        error_messages={"does_not_exist": "Choose a brand from the list."},
+    )
+    brand_name = serializers.CharField(
+        source="brand.name", read_only=True, allow_null=True
+    )
     # Public on purpose: a coarse "where is this seller" signal for meetups.
     seller_state = serializers.SerializerMethodField()
     category_label = serializers.CharField(
@@ -56,6 +86,8 @@ class ListingSerializer(serializers.ModelSerializer):
             "description",
             "image_url",
             "condition",
+            "brand",
+            "brand_name",
             "category",
             "category_label",
             "fits",
