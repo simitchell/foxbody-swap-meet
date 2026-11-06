@@ -122,9 +122,10 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
 
   | Param | Meaning |
   |---|---|
-  | `q` | Every word must appear in the title or description, any case |
+  | `q` | Every word must appear in the title, description, or brand name, any case |
   | `min_price`, `max_price` | Inclusive, whole dollars |
   | `condition`, `category` | Repeatable, matches any |
+  | `brand` | Repeatable approved-brand slugs, matches any; a pending or unknown slug is a 400 |
   | `fits` | `four_eye` or `aero` also return `all`; `all` returns only `all`; Not set never matches |
   | `state` | The seller's two-letter state, from their `Profile` |
   | `user` | The seller's user id |
@@ -135,6 +136,15 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   add `created_at` to the orderings: sorting by it reveals owner-only dates. Every
   ordering ends in `-id` so pages can't shuffle. Add new sorts to
   `LISTING_ORDERINGS`.
+- `Brand` is a table managed in the Django admin, so a new brand needs no deploy.
+  `Listing.brand` is optional and uses `PROTECT`; to remove a brand in use, run the
+  admin's **Merge into…** action. Never add brands by editing migration 0038: it
+  won't run again. `GET /brands/` is public and lists approved brands with
+  `listing_count`, unpaginated. `POST /brands/suggest/` (signed in) returns a brand
+  with that name if one exists (any case, extra spaces ignored), and otherwise
+  creates it pending, capped per user. Pending brands show on listings that use
+  them but not in `/brands/` or the `brand` filter. Listings write `brand` by slug,
+  with read-only `brand_name`.
 - Permissions: per-view. `ListingViewSet` uses `IsAuthenticatedOrReadOnly` +
   custom `IsOwnerOrReadOnly` (owner-only writes, public reads). There is **no**
   global `DEFAULT_PERMISSION_CLASSES` — every view sets its own, so check
@@ -197,11 +207,11 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   `isEditing` flag and swaps its right column for the prop-driven `EditListing` form
   (`listing`/`onSaved`/`onCancel`). Saves PATCH only the changed fields and update
   the listing from the response, with no refetch.
-- Listing cards (`ListingCard`) show the category and a `FitTag` (colors and
+- Listing cards (`ListingCard`) show "Brand · Category" and a `FitTag` (colors and
   labels in `utils/fitment.js`), not the seller; the seller and state only appear
   on listing detail. Not-set listings show neither on cards, but the row keeps its
   height so grids line up. Prices go through `utils/formatPrice.js`.
-- Both listing forms share `CategoryField` and `FitsField`, with options and the
+- Both listing forms share `BrandField`, `CategoryField` and `FitsField`, with options and the
   inline checks in `utils/listingChoices.js`. Those values must match `Category`
   and `Fits` in `models.py`; there's no endpoint for them.
 - Owner-only listing age: because the API only sends dates to the owner, owner

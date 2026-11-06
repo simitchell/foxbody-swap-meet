@@ -123,3 +123,38 @@ export const AgeNote = styled.div`
     padding: 10px 12px;
   `}
 `;
+
+// MUI's input inside our forms. The && rules undo EditForm's input styles, which
+// would otherwise draw a second border inside MUI's.
+export const BrandInput = styled.div`
+  && .MuiOutlinedInput-root {
+    background: #fff;
+    font-family: inherit;
+    border-radius: 6px;
+    min-height: 42px;
+    padding-bottom: 0;
+    padding-left: 10px;
+    padding-top: 0;
+
+    @media (max-width: 640px) {
+      min-height: 44px;
+    }
+  }
+
+  && .MuiOutlinedInput-notchedOutline {
+    border-color: #d1d5db;
+  }
+
+  && input {
+    background: transparent;
+    border: none;
+    /* 16px stops iOS Safari zooming in when the input is focused. */
+    font-size: 16px;
+    padding: 8px 0;
+  }
+
+  && + .brandHint {
+    color: #6b7280;
+    font-size: 12px;
+  }
+`;

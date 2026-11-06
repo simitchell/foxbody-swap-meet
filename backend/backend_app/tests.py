@@ -10,8 +10,9 @@ from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import connection
+from django.db import IntegrityError, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
+from django.db.models import ProtectedError
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -20,7 +21,8 @@ from rest_framework.test import APITestCase
 
 from . import seed_data
 from .management.commands.seed_dev_data import Command as SeedCommand
-from .models import Cart, Category, Fits, Listing, Profile
+from .models import Brand, Cart, Category, Fits, Listing, Profile
+from .views import MAX_PENDING_BRANDS_PER_USER
 
 PASSWORD = "S3cure-testpass!"
 
@@ -855,6 +857,49 @@ class SeedDevDataTests(TestCase):
             self.assertIn(category, Category.values)
             self.assertIn(fits, Fits.values)
 
+    def test_brand_map_matches_the_catalog_and_starting_list(self):
+        labels = {part[1] for part in seed_data.LISTINGS}
+        self.assertLessEqual(set(seed_data.LISTING_BRANDS), labels)
+        names = set(seed_data.LISTING_BRANDS.values())
+        self.assertEqual(Brand.objects.filter(name__in=names).count(), len(names))
+
+    def test_most_listings_get_a_brand_and_some_stay_unbranded(self):
+        self.run_seed("--users", "25")
+        listings = Listing.objects.filter(user__in=self.seeded())
+        share = listings.filter(brand=None).count() / listings.count()
+        self.assertGreater(share, 0.10)
+        self.assertLess(share, 0.45)
+
+    def test_pending_brands_are_seeded_and_replaced_by_flush(self):
+        self.run_seed("--users", "25")
+        def pending():
+            return Brand.objects.filter(is_approved=False)
+
+        self.assertCountEqual(
+            pending().values_list("name", flat=True), seed_data.PENDING_BRANDS
+        )
+        for brand in pending():
+            self.assertTrue(brand.listings.exists())
+            self.assertIsNotNone(brand.created_by)
+        self.assertTrue(
+            Listing.objects.filter(
+                username="seed_demo", brand__is_approved=False
+            ).exists()
+        )
+        self.run_seed("--users", "25", "--flush")
+        self.assertEqual(pending().count(), len(seed_data.PENDING_BRANDS))
+        self.run_seed("--flush-only")
+        self.assertFalse(pending().exists())
+        self.assertTrue(Brand.objects.filter(name="Saleen").exists())
+
+    def test_flush_keeps_a_pending_brand_a_real_listing_uses(self):
+        self.run_seed("--users", "25")
+        brand = Brand.objects.get(name=seed_data.PENDING_BRANDS[0])
+        real = make_user("alice")
+        Listing.objects.create(user=real, title="Mine", price=1, brand=brand)
+        self.run_seed("--flush-only")
+        self.assertTrue(Brand.objects.filter(pk=brand.pk).exists())
+
     def test_listing_values_are_valid_or_not_set(self):
         self.run_seed("--users", "25")
         listings = Listing.objects.filter(user__in=self.seeded())
@@ -1112,6 +1157,308 @@ class ListingFilterTests(APITestCase):
         # PR 3's /browse page relies on this to fall back to page 1.
         response = self.client.get("/listing/", {"page": 99})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class BrandAdminTests(TestCase):
+    URL = "/admin/backend_app/brand/"
+
+    def setUp(self):
+        self.admin_user = User.objects.create_superuser(
+            "boss", "boss@example.com", PASSWORD
+        )
+        self.client.force_login(self.admin_user)
+        self.keep = Brand.objects.create(name="Test Maximum")
+        self.dupe = Brand.objects.create(name="Test Max", is_approved=False)
+        self.other_dupe = Brand.objects.create(name="Test MM", is_approved=False)
+        seller = make_user("seller")
+        self.listing = Listing.objects.create(
+            user=seller, title="K-member", price=1, brand=self.dupe
+        )
+
+    def merge(self, selected, **extra):
+        return self.client.post(
+            self.URL,
+            {
+                "action": "merge_brands",
+                "_selected_action": [brand.pk for brand in selected],
+                **extra,
+            },
+            follow=True,
+        )
+
+    def test_list_page_shows_listing_counts(self):
+        response = self.client.get(self.URL, {"q": "Test Max"})
+        self.assertEqual(response.status_code, 200)
+        counts = {b.name: b.listing_count for b in response.context["cl"].result_list}
+        self.assertEqual(counts["Test Max"], 1)
+        self.assertEqual(counts["Test Maximum"], 0)
+
+    def test_approve_action(self):
+        self.client.post(
+            self.URL,
+            {"action": "approve_brands", "_selected_action": [self.dupe.pk]},
+        )
+        self.dupe.refresh_from_db()
+        self.other_dupe.refresh_from_db()
+        self.assertTrue(self.dupe.is_approved)
+        self.assertFalse(self.other_dupe.is_approved)
+
+    def test_merge_first_shows_a_page_and_changes_nothing(self):
+        response = self.merge([self.dupe, self.other_dupe])
+        self.assertContains(response, "Brand to keep")
+        self.assertTrue(Brand.objects.filter(pk=self.dupe.pk).exists())
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.brand, self.dupe)
+
+    def test_merge_moves_listings_and_deletes_the_others(self):
+        response = self.merge(
+            [self.dupe, self.other_dupe], apply="1", keep=self.keep.pk
+        )
+        self.assertContains(response, "Merged 2 brand(s) into Test Maximum")
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.brand, self.keep)
+        self.assertFalse(
+            Brand.objects.filter(pk__in=[self.dupe.pk, self.other_dupe.pk]).exists()
+        )
+
+    def test_merge_can_keep_one_of_the_selected_brands(self):
+        self.merge([self.keep, self.dupe], apply="1", keep=self.keep.pk)
+        self.assertTrue(Brand.objects.filter(pk=self.keep.pk).exists())
+        self.assertFalse(Brand.objects.filter(pk=self.dupe.pk).exists())
+
+    def test_merge_with_only_the_kept_brand_does_nothing(self):
+        response = self.merge([self.keep], apply="1", keep=self.keep.pk)
+        self.assertContains(response, "Nothing to merge")
+        self.assertTrue(Brand.objects.filter(pk=self.keep.pk).exists())
+
+    def test_merge_without_choosing_a_brand_keeps_everything(self):
+        response = self.merge([self.dupe], apply="1")
+        self.assertContains(response, "Brand to keep")
+        self.assertTrue(Brand.objects.filter(pk=self.dupe.pk).exists())
+
+    def test_merging_into_a_pending_brand_warns(self):
+        response = self.merge([self.dupe], apply="1", keep=self.other_dupe.pk)
+        self.assertContains(response, "is still pending")
+
+    def test_failed_merge_leaves_everything_alone(self):
+        with mock.patch(
+            "django.db.models.query.QuerySet.delete", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                self.merge([self.dupe], apply="1", keep=self.keep.pk)
+        self.listing.refresh_from_db()
+        self.assertEqual(self.listing.brand, self.dupe)
+
+    def test_listing_admin_pages_load(self):
+        for url in (
+            "/admin/backend_app/listing/",
+            f"/admin/backend_app/listing/{self.listing.pk}/change/",
+            "/admin/backend_app/brand/add/",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class BrandModelTests(TestCase):
+    def test_names_are_unique_regardless_of_case(self):
+        Brand.objects.create(name="Test Brand")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Brand.objects.create(name="TEST brand")
+
+    def test_slugs_are_generated_and_kept_unique(self):
+        self.assertEqual(Brand.objects.create(name="Test Brand").slug, "test-brand")
+        self.assertEqual(Brand.objects.create(name="Test-Brand").slug, "test-brand-2")
+
+    def test_a_brand_in_use_cannot_be_deleted(self):
+        brand = Brand.objects.create(name="Test Brand")
+        Listing.objects.create(title="Part", price=1, brand=brand)
+        with self.assertRaises(ProtectedError):
+            brand.delete()
+
+    def test_starting_list_is_seeded_and_approved(self):
+        for name in ("Trick Flow", "B&M", "Canton", "Pro-M"):
+            self.assertTrue(Brand.objects.get(name=name).is_approved)
+
+
+class BrandApiTests(APITestCase):
+    def setUp(self):
+        self.seller = make_user("seller", state="SC")
+        self.approved = Brand.objects.create(name="Test Approved")
+        self.pending = Brand.objects.create(name="Test Pending", is_approved=False)
+
+    def listing(self, title="Part", **fields):
+        fields.setdefault("user", self.seller)
+        fields.setdefault("username", fields["user"].username)
+        return Listing.objects.create(title=title, price=1, **fields)
+
+    def suggest(self, name, user=None):
+        self.client.force_authenticate(user or self.seller)
+        return self.client.post("/brands/suggest/", {"name": name}, format="json")
+
+    def test_list_is_public_sorted_and_approved_only(self):
+        response = self.client.get("/brands/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsInstance(response.data, list)
+        names = [brand["name"] for brand in response.data]
+        in_order = ["Aeromotive", "Baer", "Motorcraft", "MSD", "Saleen", "Wilwood"]
+        positions = [names.index(name) for name in in_order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("Test Approved", names)
+        self.assertNotIn("Test Pending", names)
+
+    def test_list_counts_listings(self):
+        self.listing(brand=self.approved)
+        self.listing(brand=self.approved)
+        rows = {brand["slug"]: brand for brand in self.client.get("/brands/").data}
+        self.assertEqual(rows["test-approved"]["listing_count"], 2)
+        self.assertEqual(rows["saleen"]["listing_count"], 0)
+
+    def test_list_is_read_only(self):
+        self.client.force_authenticate(self.seller)
+        response = self.client.post("/brands/", {"name": "Nope"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_suggesting_needs_a_login(self):
+        response = self.client.post("/brands/suggest/", {"name": "Nope"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_suggestion_creates_a_pending_brand(self):
+        response = self.suggest("New Parts Co")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["slug"], "new-parts-co")
+        self.assertFalse(response.data["is_approved"])
+        brand = Brand.objects.get(slug="new-parts-co")
+        self.assertEqual(brand.created_by, self.seller)
+        names = [row["name"] for row in self.client.get("/brands/").data]
+        self.assertNotIn("New Parts Co", names)
+
+    def test_suggesting_an_existing_name_returns_it(self):
+        before = Brand.objects.count()
+        response = self.suggest("  saLEEn  ")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["name"], "Saleen")
+        self.assertEqual(Brand.objects.count(), before)
+
+    def test_suggestion_collapses_extra_spaces(self):
+        before = Brand.objects.count()
+        response = self.suggest("Trick    Flow")
+        self.assertEqual(response.data["name"], "Trick Flow")
+        self.assertEqual(Brand.objects.count(), before)
+
+    def test_suggestion_rejects_blank_and_long_names(self):
+        for name in ("   ", "x" * 61):
+            with self.subTest(name=name):
+                response = self.suggest(name)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("name", response.data)
+
+    def test_pending_suggestions_are_capped_per_user(self):
+        for number in range(MAX_PENDING_BRANDS_PER_USER):
+            self.assertEqual(self.suggest(f"New Co {number}").status_code, 201)
+        response = self.suggest("One Too Many")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("name", response.data)
+        # Existing names and other people are unaffected.
+        self.assertEqual(self.suggest("Saleen").status_code, 200)
+        self.assertEqual(self.suggest("Other Co", make_user("other")).status_code, 201)
+
+    def test_approving_frees_up_the_cap(self):
+        for number in range(MAX_PENDING_BRANDS_PER_USER):
+            self.suggest(f"New Co {number}")
+        Brand.objects.filter(created_by=self.seller).update(is_approved=True)
+        self.assertEqual(self.suggest("One More").status_code, 201)
+
+    def valid_listing(self, **overrides):
+        return {
+            "title": "T-5", "price": 500, "description": "Good",
+            "category": "drivetrain", "fits": "all", **overrides,
+        }
+
+    def test_listing_can_be_created_with_or_without_a_brand(self):
+        self.client.force_authenticate(self.seller)
+        branded = self.client.post(
+            "/listing/", self.valid_listing(brand="test-approved"), format="multipart"
+        )
+        self.assertEqual(branded.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(branded.data["brand"], "test-approved")
+        self.assertEqual(branded.data["brand_name"], "Test Approved")
+        plain = self.client.post("/listing/", self.valid_listing(), format="multipart")
+        self.assertEqual(plain.status_code, status.HTTP_201_CREATED)
+        self.assertIsNone(plain.data["brand"])
+        self.assertIsNone(plain.data["brand_name"])
+
+    def test_listing_can_use_a_pending_brand_and_shows_it(self):
+        self.client.force_authenticate(self.seller)
+        response = self.client.post(
+            "/listing/", self.valid_listing(brand="test-pending"), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.client.force_authenticate(None)
+        body = self.client.get(f"/listing/{response.data['id']}/").data
+        self.assertEqual(body["brand_name"], "Test Pending")
+
+    def test_unknown_brand_gets_a_readable_400(self):
+        self.client.force_authenticate(self.seller)
+        response = self.client.post(
+            "/listing/", self.valid_listing(brand="nope"), format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["brand"], ["Choose a brand from the list."])
+
+    def test_blank_brand_clears_it(self):
+        listing = self.listing(brand=self.approved, category="engine", fits="all")
+        self.client.force_authenticate(self.seller)
+        response = self.client.patch(
+            f"/listing/{listing.id}/", {"brand": ""}, format="multipart"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        listing.refresh_from_db()
+        self.assertIsNone(listing.brand)
+
+    def test_brand_filter_is_repeatable(self):
+        other = Brand.objects.create(name="Test Other")
+        one = self.listing(brand=self.approved)
+        two = self.listing(brand=other)
+        self.listing()
+        def ids(query):
+            return {row["id"] for row in self.client.get(f"/listing/?{query}").data["results"]}
+        self.assertEqual(ids("brand=test-approved"), {one.id})
+        self.assertEqual(ids("brand=test-approved&brand=test-other"), {one.id, two.id})
+
+    def test_brand_filter_combines_with_fits(self):
+        aero = self.listing(brand=self.approved, fits="aero")
+        fits_all = self.listing(brand=self.approved, fits="all")
+        self.listing(brand=self.approved, fits="four_eye")
+        self.listing(fits="aero")
+        rows = self.client.get("/listing/?brand=test-approved&fits=aero").data["results"]
+        self.assertEqual({row["id"] for row in rows}, {aero.id, fits_all.id})
+
+    def test_brand_filter_rejects_pending_and_unknown_slugs(self):
+        self.listing(brand=self.pending)
+        for slug in ("test-pending", "nope"):
+            with self.subTest(slug=slug):
+                response = self.client.get("/listing/", {"brand": slug})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("brand", response.data)
+
+    def test_keyword_finds_brand_names(self):
+        branded = self.listing(title="Rear wing", brand=self.approved)
+        self.listing(title="Rear wing")
+        rows = self.client.get("/listing/", {"q": "approved"}).data["results"]
+        self.assertEqual([row["id"] for row in rows], [branded.id])
+        # An unbranded listing still matches on its own text.
+        rows = self.client.get("/listing/", {"q": "rear"}).data["results"]
+        self.assertEqual(len(rows), 2)
+
+    def test_brand_does_not_add_a_query_per_listing(self):
+        self.listing(brand=self.approved)
+        with CaptureQueriesContext(connection) as few:
+            self.client.get("/listing/")
+        for number in range(10):
+            self.listing(brand=Brand.objects.create(name=f"Test Many {number}"))
+        with CaptureQueriesContext(connection) as many:
+            self.client.get("/listing/")
+        self.assertEqual(len(few), len(many))
 
 
 class ListingFieldsMigrationTests(TransactionTestCase):

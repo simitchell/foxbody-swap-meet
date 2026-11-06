@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Button from "@mui/material/Button";
 import { EditForm } from "../components/GlobalStyles/StyleUtility";
 import { CreateListingContainer } from "./GlobalStyles/StyleCreateListing";
+import BrandField from "./BrandField";
 import CategoryField from "./CategoryField";
 import FitsField from "./FitsField";
 import Toast from "./Toast";
@@ -80,12 +81,15 @@ export default function ListingForm() {
               Listing title
               <input type="text" name="title" />
             </label>
-            <CategoryField
-              error={choiceErrors.category}
-              onChange={() =>
-                setChoiceErrors((errors) => ({ ...errors, category: undefined }))
-              }
-            />
+            <div className="row2">
+              <BrandField />
+              <CategoryField
+                error={choiceErrors.category}
+                onChange={() =>
+                  setChoiceErrors((errors) => ({ ...errors, category: undefined }))
+                }
+              />
+            </div>
             <FitsField
               error={choiceErrors.fits}
               onChange={() =>

@@ -30,6 +30,7 @@ from backend_app.views import CartDeleteViewSet
 
 router = routers.DefaultRouter()
 # router.register()
+router.register(r"brands", views.BrandViewSet)
 router.register(r"cart", views.CartViewSet),
 router.register(r"listing", views.ListingViewSet)
 router.register(r"profile", views.ProfileViewSet)

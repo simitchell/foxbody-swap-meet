@@ -1,7 +1,10 @@
 import os
-from django.db import transaction
+from django.db import IntegrityError, transaction
+from django.db.models import Count
+from django.db.models.functions import Lower
 from django.shortcuts import render
-from rest_framework import generics
+from rest_framework import generics, mixins
+from rest_framework.decorators import action
 from rest_framework import status, viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -20,11 +23,13 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.throttling import ScopedRateThrottle
 from .emails import send_welcome_email
 from .filters import ListingFilter
-from .models import Cart, Listing, Profile
+from .models import Brand, Cart, Listing, Profile
 from .pagination import ListingPagination
 from .turnstile import verify_turnstile_token
 
 from .serializers import (
+    BrandSerializer,
+    BrandSuggestionSerializer,
     ProfileSerializer,
     TokenObtainPairSerializer,
     UserSerializer,
@@ -101,12 +106,64 @@ def check_image_moderation(image_file):
             f"Image contains inappropriate content and cannot be uploaded."
         )
 
+# A cap rather than a rate limit: it can't be waited out, so one account can
+# never leave more than this for an admin to review. It needs no cache, and it
+# frees up as soon as a suggestion is approved or merged.
+MAX_PENDING_BRANDS_PER_USER = 5
+
+
+class BrandViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    permission_classes = [permissions.AllowAny]
+    serializer_class = BrandSerializer
+    # A small list that the forms and filters want in full.
+    pagination_class = None
+    # Sorted here because annotate() drops the model's default ordering, and by
+    # Lower so "MSD" doesn't land ahead of "Motorcraft".
+    queryset = (
+        Brand.objects.filter(is_approved=True)
+        .annotate(listing_count=Count("listings"))
+        .order_by(Lower("name"))
+    )
+
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def suggest(self, request):
+        suggestion = BrandSuggestionSerializer(data=request.data)
+        suggestion.is_valid(raise_exception=True)
+        name = suggestion.validated_data["name"]
+
+        existing = Brand.objects.filter(name__iexact=name).first()
+        if existing:
+            return Response(BrandSerializer(existing).data)
+
+        pending = Brand.objects.filter(
+            created_by=request.user, is_approved=False
+        ).count()
+        if pending >= MAX_PENDING_BRANDS_PER_USER:
+            raise ValidationError(
+                {
+                    "name": "You have several brands waiting for approval. "
+                    "Please wait for those, or leave the brand blank for now."
+                }
+            )
+
+        try:
+            # Its own transaction, so a lost race can still query afterward.
+            with transaction.atomic():
+                brand = Brand.objects.create(
+                    name=name, is_approved=False, created_by=request.user
+                )
+        except IntegrityError:
+            # Someone added the same name in the moment since the check above.
+            return Response(BrandSerializer(Brand.objects.get(name__iexact=name)).data)
+        return Response(BrandSerializer(brand).data, status=status.HTTP_201_CREATED)
+
+
 class ListingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     # A fixed order, with id as the tie-breaker. Without one, the database can
     # return rows in a different order per query, so a listing could appear on
     # two pages, or on none.
-    queryset = Listing.objects.select_related("user__profile").order_by(
+    queryset = Listing.objects.select_related("user__profile", "brand").order_by(
         "-bumped_at", "-id"
     )
     serializer_class = ListingSerializer

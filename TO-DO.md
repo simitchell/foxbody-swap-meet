@@ -373,3 +373,20 @@
       controls if anyone gets there
 - [ ] Listing detail URLs also run the filters, so /listing/5/?fits=aero can 404.
       Nothing does this today
+
+## Brand (feature/listing-brand)
+
+- [x] Brand table managed in the Django admin, starting with 37 brands, with
+      case-insensitive unique names and slugs for URLs
+- [x] Admin actions: approve, and merge with a confirmation page
+- [x] GET /brands/, POST /brands/suggest/ (pending, 5 per user), ?brand= filter, and
+      q searches brand names
+- [x] Brand field on the create and edit forms, with "Add …" for unlisted names
+- [x] "Brand · Category" on cards (two lines below desktop) and Brand on detail
+- [x] Seed data has brands, some unbranded, and two pending
+- [ ] Review pending brands regularly: a seller at 5 pending can't suggest more
+- [ ] A listing posted in the instant after choosing "Add …" can save with no brand;
+      consider disabling Post Listing while a suggestion is saving
+- [ ] Sellers aren't told when a suggested brand is approved or merged
+- [ ] Add pending brands to the Friday digest email: how many are waiting, their
+      names, and a link to the admin filtered to pending

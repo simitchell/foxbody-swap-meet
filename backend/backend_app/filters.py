@@ -2,7 +2,7 @@ from django import forms
 from django.db.models import F, Q
 from django_filters import rest_framework as filters
 
-from .models import CONDITION_CHOICES, US_STATES, Category, Fits, Listing
+from .models import CONDITION_CHOICES, US_STATES, Brand, Category, Fits, Listing
 
 
 class IntegerFilter(filters.Filter):
@@ -32,6 +32,13 @@ class ListingFilter(filters.FilterSet):
         choices=CONDITION_CHOICES, distinct=False
     )
     category = filters.MultipleChoiceFilter(choices=Category.choices, distinct=False)
+    # By slug, and only approved brands: pending ones aren't in the filter yet.
+    brand = filters.ModelMultipleChoiceFilter(
+        field_name="brand__slug",
+        to_field_name="slug",
+        queryset=Brand.objects.filter(is_approved=True),
+        distinct=False,
+    )
     fits = filters.ChoiceFilter(choices=Fits.choices, method="filter_fits")
     state = filters.ChoiceFilter(field_name="user__profile__state", choices=US_STATES)
     user = IntegerFilter(field_name="user_id")
@@ -45,10 +52,12 @@ class ListingFilter(filters.FilterSet):
         fields = []
 
     def filter_keyword(self, queryset, name, value):
-        # Every word has to appear, in either field and in any order.
+        # Every word has to appear, in any of these and in any order.
         for word in value.split():
             queryset = queryset.filter(
-                Q(title__icontains=word) | Q(description__icontains=word)
+                Q(title__icontains=word)
+                | Q(description__icontains=word)
+                | Q(brand__name__icontains=word)
             )
         return queryset
 

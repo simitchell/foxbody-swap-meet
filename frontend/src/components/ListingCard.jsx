@@ -10,6 +10,10 @@ import FitTag from "./FitTag";
 //
 // ownerMeta: an optional last row. Only "Your Listings" passes one.
 export default function ListingCard({ listing, ownerMeta }) {
+  const brandAndCategory = [listing.brand_name, listing.category_label]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <Link to={`/listingdetail/${listing.id}`}>
       {/* "card" is the class CardContainer's hover shadow looks for. */}
@@ -29,8 +33,8 @@ export default function ListingCard({ listing, ownerMeta }) {
           {/* Always rendered: its reserved height keeps a listing with neither
               value set the same size as the cards beside it. */}
           <div className="cardFit">
-            {listing.category_label && (
-              <span className="cardCategory">{listing.category_label}</span>
+            {brandAndCategory && (
+              <span className="cardCategory">{brandAndCategory}</span>
             )}
             <FitTag fits={listing.fits} />
           </div>
