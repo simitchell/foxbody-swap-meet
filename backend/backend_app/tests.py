@@ -1,5 +1,8 @@
+import random
+import tempfile
 from datetime import date, timedelta
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 from django.contrib.auth.models import User
@@ -7,12 +10,15 @@ from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.test import TestCase
+from django.db import connection
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Listing, Profile
+from . import seed_data
+from .management.commands.seed_dev_data import Command as SeedCommand
+from .models import Cart, Listing, Profile
 
 PASSWORD = "S3cure-testpass!"
 
@@ -514,3 +520,164 @@ class RegistrationLoginTests(APITestCase):
                 self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
                 self.assertNotIn("access", response.data)
                 self.assertNotIn("refresh", response.data)
+
+
+class SeedDevDataTests(TestCase):
+    def setUp(self):
+        # The test runner forces DEBUG off and renames the database, so make
+        # the settings look local. The tests still use the test database.
+        settings_patch = override_settings(DEBUG=True)
+        settings_patch.enable()
+        self.addCleanup(settings_patch.disable)
+        db_patch = mock.patch.dict(
+            connection.settings_dict, {"NAME": "foxbody_local", "HOST": "localhost"}
+        )
+        db_patch.start()
+        self.addCleanup(db_patch.stop)
+        # Images go to a throwaway folder, never the real mediafiles/.
+        media = tempfile.TemporaryDirectory()
+        self.addCleanup(media.cleanup)
+        self.media_root = Path(media.name)
+        media_patch = override_settings(MEDIA_ROOT=media.name)
+        media_patch.enable()
+        self.addCleanup(media_patch.disable)
+
+    def run_seed(self, *args):
+        out = StringIO()
+        call_command("seed_dev_data", *args, stdout=out)
+        return out.getvalue()
+
+    def seeded(self):
+        return User.objects.filter(email__endswith="@seed.example.com")
+
+    def image_files(self):
+        return [p for p in self.media_root.rglob("*") if p.is_file()]
+
+    def assert_refused(self, message):
+        with self.assertRaisesMessage(CommandError, message):
+            self.run_seed("--users", "2")
+        self.assertFalse(self.seeded().exists())
+
+    def test_refuses_a_database_with_another_name(self):
+        with mock.patch.dict(connection.settings_dict, {"NAME": "railway"}):
+            self.assert_refused("Refusing to seed database 'railway'")
+
+    def test_refuses_a_remote_host(self):
+        with mock.patch.dict(connection.settings_dict, {"HOST": "db.example.net"}):
+            self.assert_refused("on host 'db.example.net'")
+
+    def test_refuses_with_debug_off(self):
+        with override_settings(DEBUG=False):
+            self.assert_refused("DEBUG off")
+
+    def test_prints_the_database_first(self):
+        first_line = self.run_seed("--users", "2").splitlines()[0]
+        self.assertEqual(first_line, "Database: foxbody_local on host: localhost")
+
+    def test_counts_match_the_arguments(self):
+        self.run_seed("--users", "6")
+        self.assertEqual(self.seeded().count(), 6)
+        self.assertEqual(Profile.objects.filter(user__in=self.seeded()).count(), 6)
+        listings = Listing.objects.filter(user__in=self.seeded())
+        self.assertEqual(len(self.image_files()), listings.count())
+        self.assertEqual(listings.filter(user__username="seed_demo").count(), 6)
+        for listing in listings:
+            self.assertEqual(listing.username, listing.user.username)
+
+    def test_seeded_users_can_log_in(self):
+        self.run_seed("--users", "2")
+        self.assertTrue(
+            self.client.login(username="seed_demo", password=seed_data.SEED_PASSWORD)
+        )
+
+    def test_same_seed_gives_the_same_users(self):
+        self.run_seed("--users", "6", "--seed", "7")
+        first = sorted(self.seeded().values_list("username", flat=True))
+        self.run_seed("--users", "6", "--seed", "7", "--flush")
+        self.assertEqual(first, sorted(self.seeded().values_list("username", flat=True)))
+
+    def test_digest_stamp_is_set_unless_unstamped(self):
+        self.run_seed("--users", "2")
+        profiles = Profile.objects.filter(user__in=self.seeded())
+        self.assertFalse(profiles.filter(signup_digest_sent_at__isnull=True).exists())
+        self.run_seed("--users", "2", "--unstamped", "--flush")
+        self.assertFalse(profiles.filter(signup_digest_sent_at__isnull=False).exists())
+
+    def test_rerun_without_flush_is_blocked(self):
+        self.run_seed("--users", "3")
+        with self.assertRaisesMessage(CommandError, "--flush"):
+            self.run_seed("--users", "3")
+        self.assertEqual(self.seeded().count(), 3)
+
+    def test_taken_username_is_reported(self):
+        make_user("seed_demo")
+        with self.assertRaisesMessage(CommandError, "already taken: seed_demo"):
+            self.run_seed("--users", "2")
+
+    def test_flush_only_removes_seeded_data_and_files(self):
+        self.run_seed("--users", "3")
+        self.run_seed("--flush-only")
+        self.assertFalse(self.seeded().exists())
+        self.assertFalse(Listing.objects.exists())
+        self.assertFalse(Cart.objects.exists())
+        self.assertEqual(self.image_files(), [])
+
+    def test_flush_leaves_other_users_alone(self):
+        # alice is @example.com, the closest thing to the seed's own domain.
+        alice = make_user("alice")
+        self.assertEqual(alice.email, "alice@example.com")
+        listing = Listing.objects.create(user=alice, username="alice", title="Hood", price=1)
+        cart = Cart.objects.create(user_id=alice, cart_item="Hood", price=1)
+        self.run_seed("--users", "3")
+        self.run_seed("--flush-only")
+        self.assertTrue(User.objects.filter(pk=alice.pk).exists())
+        self.assertTrue(Listing.objects.filter(pk=listing.pk).exists())
+        self.assertTrue(Cart.objects.filter(pk=cart.pk).exists())
+
+    def test_failure_partway_leaves_no_rows_or_files(self):
+        original = SeedCommand.attach_image
+        calls = []
+
+        def fail_on_third(command, *args):
+            calls.append(1)
+            if len(calls) == 3:
+                raise RuntimeError("boom")
+            return original(command, *args)
+
+        with mock.patch.object(SeedCommand, "attach_image", fail_on_third):
+            with self.assertRaises(RuntimeError):
+                self.run_seed("--users", "3")
+        self.assertFalse(self.seeded().exists())
+        self.assertEqual(self.image_files(), [])
+
+    def test_failed_reseed_keeps_the_old_data_and_files(self):
+        self.run_seed("--users", "3")
+        before = sorted(self.image_files())
+        with mock.patch.object(
+            SeedCommand, "seed_carts", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                self.run_seed("--users", "3", "--flush")
+        self.assertEqual(self.seeded().count(), 3)
+        self.assertEqual(sorted(self.image_files()), before)
+
+    def test_cart_items_never_come_from_the_buyers_own_listings(self):
+        buyer, seller = make_user("buyer"), make_user("seller")
+        mine = Listing.objects.create(user=buyer, title="Mine", price=1)
+        theirs = Listing.objects.create(user=seller, title="Theirs", price=1)
+        SeedCommand().seed_carts(
+            random.Random(1), [(buyer, "full"), (seller, "full")], [mine, theirs]
+        )
+        titles = Cart.objects.filter(user_id=buyer).values_list("cart_item", flat=True)
+        self.assertEqual(list(titles), ["Theirs"])
+
+    def test_catalog_fits_the_models(self):
+        self.assertEqual(len(seed_data.LONGEST_BIO), 400)
+        for bio in seed_data.BIOS:
+            self.assertLessEqual(len(bio), 400)
+        cart_title_limit = Cart._meta.get_field("cart_item").max_length
+        for category, _label, title, price, description in seed_data.LISTINGS:
+            self.assertIn(category, seed_data.CATEGORY_COLORS)
+            self.assertLessEqual(len(title), cart_title_limit)
+            self.assertLessEqual(len(description), 250)
+            self.assertIsInstance(price, int)

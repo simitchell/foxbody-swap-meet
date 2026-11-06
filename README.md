@@ -66,3 +66,18 @@ Routes
 
 - The shared enthusiasm ("for enthusiasts, by enthusiasts") ensures knowledgability of subject matter, proper packing methods, values of rare and obscure items. - Because Facebook Marketplace is the wild west. "Is this available?"... UGH. FB Marketplace is fine if you can drive to the person and observe the item in person. But falls apart if shipping is involved. Nobody will come to your aid if you get wronged on Marketplace.
 - Because Forums were good years ago, but still didn't offer much in terms of buyer protection except the risk of ruining one's reputation within the forum.
+
+
+## Seeding local data
+
+Fill your **local** database with believable users, listings, and cart items. From `backend/`:
+
+```bash
+venv/bin/python manage.py seed_dev_data              # create seed data
+venv/bin/python manage.py seed_dev_data --flush      # delete seeded data, then re-seed
+venv/bin/python manage.py seed_dev_data --flush-only # delete seeded data and stop
+```
+
+Log in as `seed_demo`, or any seeded user, with the password `foxbody-dev-123`.
+
+**Local only.** The command refuses to run unless the database is `foxbody_local` on a local host with `DEBUG` on, and there is no override. Never run it against production. See `CLAUDE.md` for all the options.

@@ -307,3 +307,29 @@
       the nav and centered content sideways between pages
 - [ ] Known tradeoff: with classic scrollbars, short pages show a 15px pale
       strip beside the nav and footer (accepted; revisit if it bothers anyone)
+
+## Dev seed data (chore/dev-seed-data)
+
+- [x] `manage.py seed_dev_data`: 25 users, about 120 listings with placeholder
+      images, cart items, and a `seed_demo` login, reproducible from --seed
+- [x] Refuses to run unless on foxbody_local on a local host with DEBUG on;
+      no --force
+- [x] --flush / --flush-only remove only @seed.example.com users and their
+      image files; re-running without --flush is blocked
+- [x] --images-dir for real photos; images skipped if storage is S3
+- [x] SeedDevDataTests, CLAUDE.md and README docs
+
+## Found while testing with seed data
+
+- [ ] BUG: /cart at phone width pushes Remove off-screen, and body's
+      overflow-x: hidden means you can't scroll to it. At <=768px
+      CartOuterContainer is a column with align-items: flex-start, so the
+      main column grows to fit nowrap titles (520px on a 375px screen).
+      align-items: stretch at that breakpoint fixed it when tried live
+- [ ] A listing with no image renders a broken <img> with no source; needs a
+      fallback (only "Bob spoof attempt" locally, but the API allows it)
+- [ ] "Your Listings" empty state just says "No data found"; a friendlier
+      message with a link to create a listing would help new sellers
+- [ ] Listing has no created date or default sort order, so the homepage order
+      is whatever Postgres returns; needed before sorting or pagination
+- [ ] Listing display ideas from browsing with fuller data (to be added)
