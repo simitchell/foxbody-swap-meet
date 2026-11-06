@@ -77,7 +77,7 @@ export default function Profile() {
         />
       </PanelRow>
 
-      <DisplayUserListings onCountChange={setListingCount} />
+      <DisplayUserListings onCountChange={setListingCount} showListingAge />
     </ProfileContainer>
   );
 }

@@ -148,6 +148,44 @@ export const DetailInfoCard = styled.div`
     &:first-child {
       border-right: 0.5px solid #e0e0e0;
     }
+
+    /* A listing with only one of Category or Fits set. */
+    &:only-child {
+      grid-column: 1 / -1;
+      border-right: none;
+    }
+  }
+
+  .listed-row {
+    padding: 0.75rem 1rem;
+    border-bottom: 0.5px solid #e0e0e0;
+
+    p {
+      margin: 0;
+    }
+
+    p.label {
+      font-size: 11px;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }
+
+    p.value {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    p.stale {
+      color: #8a4b00;
+    }
+
+    p.note {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
   }
 
   .condition-row {

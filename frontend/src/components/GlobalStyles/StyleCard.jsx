@@ -42,6 +42,8 @@ export const Card = styled.div`
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* Fills its grid row, so cards end level even if one has an extra line. */
+  height: 100%;
   background-color: white;
   border: 0.5px solid #e5e7eb;
   border-radius: 12px;
@@ -50,7 +52,6 @@ export const Card = styled.div`
   .cardImage {
     width: 100%;
     aspect-ratio: 4 / 3;
-    margin: auto;
     overflow: hidden;
 
     img {
@@ -89,10 +90,24 @@ export const Card = styled.div`
     color: #6b7280;
   }
 
-  .seller {
+  .cardFit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+    min-height: 22px;
+  }
+
+  .cardCategory {
+    /* min-width: 0 lets the text shrink and show "…" next to the tag. */
+    min-width: 0;
+    overflow: hidden;
     font-size: 12px;
-    color: #9ca3af;
-    margin-top: 0.45rem;
+    font-weight: 500;
+    color: #374151;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Phones: cards are ~165px wide in the 2-column grid, so compact them. */
@@ -120,23 +135,28 @@ export const Card = styled.div`
       line-clamp: 2;
     }
 
-    /* Price above condition: side by side they collide at this width. */
+    /* Same row when they fit. flex-wrap is the safety net: a long pair drops
+       the condition to the next line instead of overflowing the card. */
     .cardMeta {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 6px;
+      flex-wrap: wrap;
+      gap: 4px 8px;
     }
 
     .conditionRow {
       font-size: 12px;
+      white-space: nowrap;
     }
 
-    .seller {
-      font-size: 11px;
-      margin: 6px 0 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    /* Category on one line, tag on the next. */
+    .cardFit {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      min-height: 46px;
+    }
+
+    .cardCategory {
+      max-width: 100%;
     }
   }
 `;
@@ -150,6 +170,32 @@ export const PriceBadge = styled.span`
   font-size: 13px;
   font-weight: 500;
   color: #3b6d11;
+`;
+
+export const FitPill = styled.span`
+  display: inline-block;
+  flex-shrink: 0;
+  background: ${({ $background }) => $background};
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: ${({ $color }) => $color};
+  white-space: nowrap;
+
+  .fitShort {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .fitLong {
+      display: none;
+    }
+
+    .fitShort {
+      display: inline;
+    }
+  }
 `;
 
 export const ConditionDot = styled.span`

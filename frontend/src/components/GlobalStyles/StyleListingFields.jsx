@@ -86,3 +86,40 @@ export const FitCard = styled.label`
     font-size: 13px;
   }
 `;
+
+export const AgeRow = styled.div`
+  align-items: center;
+  border-top: 1px solid #f0f1f3;
+  color: ${({ $stale }) => ($stale ? "#8a4b00" : "#4b5563")};
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+
+  svg {
+    flex: 0 0 auto;
+  }
+`;
+
+export const AgeNote = styled.div`
+  align-items: center;
+  align-self: stretch;
+  color: ${({ $stale }) => ($stale ? "#8a4b00" : "#4b5563")};
+  display: flex;
+  font-size: 13px;
+  gap: 8px;
+
+  svg {
+    flex: 0 0 auto;
+  }
+
+  ${({ $stale }) =>
+    $stale &&
+    `
+    background: #fff8ee;
+    border: 1px solid #f5dfc0;
+    border-radius: 8px;
+    padding: 10px 12px;
+  `}
+`;
