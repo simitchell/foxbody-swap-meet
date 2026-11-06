@@ -416,3 +416,7 @@
       the older "homepage shows all listings / pagination" need
 - [x] Brand · Category wraps to two lines at every width
 - [ ] Consider two-line titles on desktop: four columns cut off long titles sooner
+
+## Ideas for later
+
+- [ ] Support multiple photos on a listing
