@@ -14,6 +14,9 @@ export const CartOuterContainer = styled.div`
 
   @media (max-width: 768px) {
     flex-direction: column;
+    /* flex-start would size each column to its content, and the cart's nowrap
+       titles would push the page, and Remove, past the screen edge. */
+    align-items: stretch;
   }
 `;
 
@@ -103,6 +106,15 @@ export const CartItemTitle = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  /* One line leaves too little of the title to read on a phone. */
+  @media (max-width: 768px) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+  }
 `;
 
 export const CartItemPrice = styled.div`
