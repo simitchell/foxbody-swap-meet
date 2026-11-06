@@ -220,6 +220,17 @@ venv/bin/python manage.py seed_dev_data --unstamped         # leave them unrepor
   viewer is the owner. `undefined` means no dates were sent; `null` means the
   listing is from before Nov 2026. Wording and the 60-day stale rule are in
   `utils/listingAge.js`. Only `/profile` passes `showListingAge`.
+- `/browse` (`BrowsePage`) keeps every filter in the URL, under the listing API's
+  param names, and `useSearchParams` is the only source of truth, so never copy
+  filters into `useState`. That's what makes back, refresh, and shared links work.
+  Helpers are in `utils/browseFilters.js`: `withChanges` drops `page` and leaves
+  empty values and the default sort out of the URL. At 1024px and up, the sidebar
+  applies each change immediately. Below that, `BrowseFiltersDrawer` edits a draft
+  and only writes to the URL on "Show N results". A 404 for a page past the end
+  drops `page`, and a brand slug that's no longer listed gets dropped quietly,
+  because the API would 400 on it.
+- Navbar search goes to `/browse?q=term` and always starts fresh, dropping other
+  filters. Old `/search/...` URLs redirect there (`routes/searchredirect.jsx`).
 - Styling: per-feature styled-components modules under
   `components/GlobalStyles/` (`Style*.jsx`), mixed with MUI components.
 

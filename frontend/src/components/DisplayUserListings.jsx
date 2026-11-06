@@ -25,6 +25,8 @@ export default function DisplayUserListings({ onCountChange, showListingAge }) {
       // Signed in, because the API only sends dates to a listing's owner.
       const userId = localStorage.getItem("userId");
       const response = await apiFetch(`/listing/?user=${userId}&page_size=100`);
+      // An expired session is already on its way to the login page.
+      if (!response.ok) return;
       const data = await response.json();
       setListingData(data.results);
       setListingCount(data.count);

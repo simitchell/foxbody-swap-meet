@@ -217,6 +217,8 @@ export default function BrowseFiltersDrawer({
           display: "flex",
           flexDirection: "column",
           height: "calc(100% - 64px)",
+          // Landscape phones: every pixel counts, so use the whole screen.
+          "@media (max-height: 500px)": { borderRadius: 0, height: "100%" },
         },
       }}
     >

@@ -80,6 +80,10 @@ export const NavRight = styled.div`
   display: flex;
   flex-direction: row;
   width: 40%;
+  /* Grows past 40% when the links need it, so a signed-in nav at around 1024px
+     takes room from the left side instead of running off the screen. */
+  flex-shrink: 0;
+  min-width: max-content;
   /* margin-right: 7.5%; */
   /* text-align: right; */
 
@@ -104,6 +108,7 @@ export const NavRight = styled.div`
     top: 50px;
     left: 0;
     width: 100%;
+    min-width: 0;
     background-color: #f2502c;
     flex-direction: column;
 

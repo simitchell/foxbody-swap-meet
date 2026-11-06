@@ -390,3 +390,22 @@
 - [ ] Sellers aren't told when a suggested brand is approved or merged
 - [ ] Add pending brands to the Friday digest email: how many are waiting, their
       names, and a link to the admin filtered to pending
+
+## Browse page (feature/browse-page)
+
+- [x] /browse with filters, sort, active tags and pagination, all kept in the URL
+- [x] Desktop sidebar applies immediately; phone and tablet drawer uses a draft and
+      shows the matching count
+- [x] Navbar search lands on /browse with a fresh search, and old /search URLs
+      redirect
+- [x] BUG: typing in the navbar search jumped to the homepage on every keystroke
+- [x] BUG: Your Listings crashed the profile page when the API rejected the session
+      (from the pagination PR)
+- [x] BUG: the Browse link pushed the signed-in nav off screen around 1024-1100px
+- [ ] Remember the visitor's 'Fits my car' choice (localStorage) and preselect it on
+      /browse — later.
+- [ ] A very long username could still crowd the nav just above 1024px
+- [ ] Keyword placeholder says "Title or description" but it also searches brands
+- [ ] Brand dropdown options use MUI's default font rather than Work Sans
+- [ ] Direct links to old search URLs with a dot, like /search/5.0, show a blank page
+      on the Vite dev server. Netlify should serve them via _redirects; unconfirmed
