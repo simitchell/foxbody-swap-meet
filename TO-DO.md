@@ -409,3 +409,10 @@
 - [ ] Brand dropdown options use MUI's default font rather than Work Sans
 - [ ] Direct links to old search URLs with a dot, like /search/5.0, show a blank page
       on the Vite dev server. Netlify should serve them via _redirects; unconfirmed
+
+## Homepage Fresh Listings (feature/home-fresh-listings)
+
+- [x] Homepage shows the newest 12 (8 on phones) with Browse all links, replacing
+      the older "homepage shows all listings / pagination" need
+- [x] Brand · Category wraps to two lines at every width
+- [ ] Consider two-line titles on desktop: four columns cut off long titles sooner

@@ -83,6 +83,37 @@ export const FreshGrid = styled(CardContainer)`
 
   @media ${phone} {
     padding: 0;
+
+    /* 8 on phones, four even rows. CSS rather than asking the server for fewer:
+       one request, no resize listener, and nothing shifts as the page loads. */
+    > a:nth-child(n + 9) {
+      display: none;
+    }
+  }
+`;
+
+export const BrowseAllRow = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 32px 0 40px;
+
+  a {
+    color: #fff;
+    min-height: 46px;
+    padding: 0 28px;
+  }
+
+  a:hover {
+    color: #fff;
+  }
+
+  @media ${phone} {
+    padding-top: 24px;
+
+    a {
+      min-height: 48px;
+      width: 100%;
+    }
   }
 `;
 

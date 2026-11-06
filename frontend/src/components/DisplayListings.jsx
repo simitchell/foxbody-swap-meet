@@ -1,10 +1,17 @@
 import { API_BASE_URL } from "../config";
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useAuth } from "../AuthContext";
 import { ProgressDiv } from "./GlobalStyles/StyleDisplayListing";
-import { FreshEmpty, FreshGrid, FreshHeading, FreshSection } from "./GlobalStyles/StyleHome";
+import {
+  BrowseAllRow,
+  FreshEmpty,
+  FreshGrid,
+  FreshHeading,
+  FreshSection,
+} from "./GlobalStyles/StyleHome";
 import ListingCard from "./ListingCard";
 
 const FRESH_LISTINGS = 12;
@@ -65,11 +72,18 @@ export default function DisplayListings() {
           <CircularProgress />
         </ProgressDiv>
       ) : listingData.length > 0 ? (
-        <FreshGrid>
-          {listingData.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
-          ))}
-        </FreshGrid>
+        <>
+          <FreshGrid>
+            {listingData.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </FreshGrid>
+          <BrowseAllRow>
+            <Button component={Link} to="/browse" variant="contained">
+              {browseAllText}
+            </Button>
+          </BrowseAllRow>
+        </>
       ) : (
         <FreshEmpty>
           <p>No listings yet. Be the first to post one!</p>
