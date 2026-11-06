@@ -3,6 +3,7 @@ import Button from "@mui/material/Button";
 import { EditForm } from "./GlobalStyles/StyleUtility";
 import { InfoNote } from "./GlobalStyles/StyleListingFields";
 import { ReplacePhotoLabel } from "./GlobalStyles/StyleListingDetail";
+import BrandField from "./BrandField";
 import CategoryField from "./CategoryField";
 import FitsField from "./FitsField";
 import Toast from "./Toast";
@@ -106,13 +107,19 @@ export default function EditListing({ listing, onSaved, onCancel }) {
           Listing title
           <input type="text" name="title" defaultValue={listing.title ?? ""} />
         </label>
-        <CategoryField
-          defaultValue={listing.category}
-          error={choiceErrors.category}
-          onChange={() =>
-            setChoiceErrors((errors) => ({ ...errors, category: undefined }))
-          }
-        />
+        <div className="row2">
+          <BrandField
+            defaultSlug={listing.brand}
+            defaultName={listing.brand_name}
+          />
+          <CategoryField
+            defaultValue={listing.category}
+            error={choiceErrors.category}
+            onChange={() =>
+              setChoiceErrors((errors) => ({ ...errors, category: undefined }))
+            }
+          />
+        </div>
         <FitsField
           defaultValue={listing.fits}
           error={choiceErrors.fits}
