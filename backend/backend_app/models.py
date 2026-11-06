@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 
 # lets us explicitly set upload path and filename
@@ -83,6 +84,14 @@ class Listing(models.Model):
     fits = models.CharField(
         max_length=10, choices=Fits.choices, blank=True, default=""
     )
+    # When the listing was first posted. Never changes. Null means it was posted
+    # before we recorded dates.
+    created_at = models.DateTimeField(
+        null=True, blank=True, default=timezone.now, editable=False
+    )
+    # What "Newest" sorts by. A future paid bump sets this to now, moving the
+    # listing back to the top without rewriting its real age.
+    bumped_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     def __str__(self) -> str:
         return self.title

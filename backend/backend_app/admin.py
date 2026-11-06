@@ -23,8 +23,17 @@ class CustomUserAdmin(UserAdmin):
 
 
 class ListingAdmin(admin.ModelAdmin):
-    list_display = ["title", "username", "price", "category", "fits"]
+    list_display = [
+        "title",
+        "username",
+        "price",
+        "category",
+        "fits",
+        "created_at",
+        "bumped_at",
+    ]
     list_filter = ["category", "fits"]
+    readonly_fields = ["created_at"]
 
 
 # Register your models here.
