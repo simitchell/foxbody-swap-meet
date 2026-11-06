@@ -981,6 +981,139 @@ class ListingPaginationTests(APITestCase):
         self.assertNotIn("created_at", by_owner["theirs"])
 
 
+class ListingFilterTests(APITestCase):
+    def setUp(self):
+        self.sc_seller = make_user("sc_seller", state="SC")
+        self.ga_seller = make_user("ga_seller", state="GA")
+        self.hood = self.listing(
+            "Cobra R hood", 400, category="exterior", fits="aero", condition="new",
+            description="Fiberglass with pins",
+        )
+        self.bezels = self.listing(
+            "Headlight bezels", 60, category="exterior", fits="four_eye",
+            condition="fair", description="Faded paint",
+        )
+        self.t5 = self.listing(
+            "T-5 transmission", 850, category="drivetrain", fits="all",
+            condition="good", description="Shifts clean", seller=self.ga_seller,
+        )
+        self.not_set = self.listing(
+            "Mystery part", 25, condition="great", description="No idea",
+            seller=self.ga_seller,
+        )
+
+    def listing(self, title, price, seller=None, **fields):
+        seller = seller or self.sc_seller
+        return Listing.objects.create(
+            user=seller, username=seller.username, title=title, price=price, **fields
+        )
+
+    def ids(self, query):
+        response = self.client.get(f"/listing/?{query}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        return [listing["id"] for listing in response.data["results"]]
+
+    def assert_finds(self, query, *listings):
+        self.assertCountEqual(self.ids(query), [listing.id for listing in listings])
+
+    def test_keyword_matches_title_and_description_in_any_case(self):
+        self.assert_finds("q=HOOD", self.hood)
+        self.assert_finds("q=shifts", self.t5)
+
+    def test_keyword_needs_every_word_in_any_order(self):
+        self.assert_finds("q=pins+hood", self.hood)
+        self.assert_finds("q=hood+shifts")
+
+    def test_price_range_is_inclusive(self):
+        self.assert_finds("min_price=400", self.hood, self.t5)
+        self.assert_finds("max_price=60", self.bezels, self.not_set)
+        self.assert_finds("min_price=60&max_price=400", self.hood, self.bezels)
+
+    def test_condition_is_repeatable(self):
+        self.assert_finds("condition=new", self.hood)
+        self.assert_finds("condition=new&condition=fair", self.hood, self.bezels)
+
+    def test_category_is_repeatable(self):
+        self.assert_finds("category=drivetrain", self.t5)
+        self.assert_finds(
+            "category=exterior&category=drivetrain", self.hood, self.bezels, self.t5
+        )
+
+    def test_fits_includes_parts_that_fit_every_fox_body(self):
+        self.assert_finds("fits=aero", self.hood, self.t5)
+        self.assert_finds("fits=four_eye", self.bezels, self.t5)
+
+    def test_fits_all_only_finds_all(self):
+        self.assert_finds("fits=all", self.t5)
+
+    def test_state_filters_by_the_sellers_profile(self):
+        self.assert_finds("state=SC", self.hood, self.bezels)
+        self.assert_finds("state=GA", self.t5, self.not_set)
+
+    def test_user_returns_only_that_sellers_listings(self):
+        self.assert_finds(f"user={self.ga_seller.id}", self.t5, self.not_set)
+
+    def test_filters_combine(self):
+        self.assert_finds("category=exterior&fits=aero&state=SC", self.hood)
+        self.assert_finds("category=exterior&fits=aero&state=GA")
+        self.assert_finds("q=t-5&fits=aero&max_price=900", self.t5)
+
+    def test_default_order_follows_bumped_at_not_age(self):
+        # An older listing with a later bumped_at comes first, which is what a
+        # future paid bump will do.
+        self.assertEqual(self.ids("")[0], self.not_set.id)
+        Listing.objects.filter(pk=self.hood.pk).update(
+            bumped_at=timezone.now() + timedelta(minutes=1)
+        )
+        self.assertEqual(self.ids("")[0], self.hood.id)
+        self.assertEqual(self.ids("ordering=-listed")[0], self.hood.id)
+        self.assertEqual(self.ids("ordering=listed")[-1], self.hood.id)
+
+    def test_ordering_by_price_both_ways(self):
+        by_price = [self.not_set.id, self.bezels.id, self.hood.id, self.t5.id]
+        self.assertEqual(self.ids("ordering=price"), by_price)
+        self.assertEqual(self.ids("ordering=-price"), by_price[::-1])
+
+    def test_equal_prices_tie_break_by_newest_id(self):
+        first = self.listing("Same A", 5)
+        second = self.listing("Same B", 5)
+        ids = self.ids("ordering=price")[:2]
+        self.assertEqual(ids, [second.id, first.id])
+
+    def test_listings_with_no_price_sort_last_both_ways(self):
+        no_price = self.listing("No price", None)
+        self.assertEqual(self.ids("ordering=price")[-1], no_price.id)
+        self.assertEqual(self.ids("ordering=-price")[-1], no_price.id)
+
+    def test_private_and_internal_orderings_are_rejected(self):
+        for field in ("created_at", "-created_at", "bumped_at", "username"):
+            with self.subTest(field=field):
+                response = self.client.get("/listing/", {"ordering": field})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn("ordering", response.data)
+
+    def test_invalid_values_get_a_readable_400(self):
+        cases = {
+            "max_price": "abc",
+            "min_price": "1.5",
+            "category": "tires",
+            "condition": "used",
+            "fits": "mustang",
+            "state": "ZZ",
+            "user": "abc",
+        }
+        for param, value in cases.items():
+            with self.subTest(param=param):
+                response = self.client.get("/listing/", {param: value})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn(param, response.data)
+
+    def test_page_past_the_end_is_a_404(self):
+        # PR 3's /browse page relies on this to fall back to page 1.
+        response = self.client.get("/listing/", {"page": 99})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
 class ListingFieldsMigrationTests(TransactionTestCase):
     """Listings from before these fields existed, on their way through 0036."""
 
