@@ -331,9 +331,9 @@
       fallback (only "Bob spoof attempt" locally, but the API allows it)
 - [ ] "Your Listings" empty state just says "No data found"; a friendlier
       message with a link to create a listing would help new sellers
-- [ ] Listing has no created date or default sort order, so the homepage order
+- [x] Listing has no created date or default sort order, so the homepage order
       is whatever Postgres returns; needed before sorting or pagination
-- [ ] Listing display ideas from browsing with fuller data (to be added)
+- [x] Listing display ideas from browsing with fuller data (to be added)
 
 ## Listing fields: Category, Fits, owner-only dates (feature/listing-category-fits)
 
@@ -351,7 +351,7 @@
       id, created_at), a bump endpoint that sets bumped_at = now, a once-per-7-days
       limit, Stripe checkout, maybe a 'Bumped' badge. bumped_at is already in place
       and drives Newest sorting.
-- [ ] Default sort order still isn't applied: the older "no created date or default
+- [x] Default sort order still isn't applied: the older "no created date or default
       sort order" item above is half done, and the sort comes in PR 2
 - [ ] Age text wraps to 2-3 lines on phone Your Listings cards ("Listed Oct 2, 2025
       · 400 days ago"); consider shorter wording there
@@ -368,7 +368,7 @@
       This finishes the older "no default sort order" item
 - [x] Sorting by created_at is rejected, which closes a small leak of owner-only dates
 - [x] Your Listings asks for one seller instead of filtering in the browser
-- [ ] Homepage shows only the newest 100 until PR 4 (see TODO(PR 4))
+- [x] Homepage shows only the newest 100 until PR 4 (see TODO(PR 4))
 - [ ] Your Listings shows at most 100 for a seller with more; needs pagination
       controls if anyone gets there
 - [ ] Listing detail URLs also run the filters, so /listing/5/?fits=aero can 404.
