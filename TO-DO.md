@@ -29,7 +29,7 @@
 - [x] `.env.example` documenting every required env var (no real secrets).
       (backend/.env.example, chore/local-env; frontend/.env.example already existed)
 - [ ] README quickstart that actually works from a clean clone.
-- [ ] Seed-data script so the site has listings to browse on first run.
+- [x] Seed-data script so the site has listings to browse on first run (#46).
 - [ ] Basic smoke tests (registration, create listing, add to cart) —
       `tests.py` is currently empty.
 
@@ -60,9 +60,9 @@
       protection) — revisit separately.
 - [ ] Refresh token is stored in `localStorage` (set in `LoginForm.jsx`), which
       is XSS-exposed. Consider httpOnly cookies, or document as a known risk.
-- [ ] Add pagination to `listing/` (no `DEFAULT_PAGINATION_CLASS` today) — the
+- [x] (#49) Add pagination to `listing/` (no `DEFAULT_PAGINATION_CLASS` today) — the
       home page fetches every listing in one request.
-- [ ] Extend search beyond title: `search_fields = ["title"]` only, so the
+- [x] (#49, #50) Extend search beyond title: `search_fields = ["title"]` only, so the
       "search by keywords" goal is half-built. Include description/keywords.
 
 ## Data model
@@ -420,3 +420,14 @@
 ## Ideas for later
 
 - [ ] Support multiple photos on a listing
+
+## Text pages on phones (fix/text-pages-mobile)
+
+- [x] About Us and How it Works ran edge to edge on phones: Text gets a 16px
+      side gutter (desktop line length unchanged; the homepage welcome opts out
+      with $gutter={false})
+- [x] Phones: lists indent 20px instead of 40px (nested too) and h2 is 20px
+- [ ] Logout page h1 is the global 3.2em; invisible today because /logout
+      redirects to / right away, but would be huge on a phone if it ever stays
+- [ ] routes/howitworks.jsx has an unused Text import (and aboutus.jsx a
+      commented-out one); tidy up with the lint cleanup
