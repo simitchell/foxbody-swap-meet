@@ -45,7 +45,7 @@ export default function HomePage() {
         $hideOnPhone={!isAuth}
       >
         <HomeWelcome>
-          <Text>
+          <Text $gutter={false}>
             <h2>Welcome to Fox Body Swap Meet</h2>
             <p>
               We are a community of automotive enthusiasts, passionate about
